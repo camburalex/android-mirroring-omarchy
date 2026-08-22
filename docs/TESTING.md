@@ -39,6 +39,11 @@ Any QML integration change must also survive a full cold restart:
 - `node tests/AdbParser.test.js` runs the fixture suite against the real
   production `qml/AdbParser.js`.
 
+## Scrcpy command checks
+
+- `node tests/ScrcpyCommand.test.js` runs the fixture suite against the real
+  production `qml/ScrcpyCommand.js`.
+
 ## Android hardware checks (NOT YET RUN)
 
 - ADB device detection over USB

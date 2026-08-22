@@ -14,12 +14,24 @@
 - M2-T1B restored cold-start bar-widget loading by moving `DeviceManager`
   from `QtObject` to `Quickshell.Scope`; the plugin now survives a full
   `omarchy restart shell` and keeps the M2-T1 discovery behavior.
-- M2-T2 will own USB mirroring/session process lifecycle after review.
+- M2-T2 adds a `Scope`-owned `ScrcpyBackend` with a tracked Quickshell
+  `Process`, a production `scrcpy -s <serial>` argv builder, and panel
+  Mirror/Stop controls. Cold-start QML load and bar placement passed after
+  `omarchy restart shell`.
 - Wireless pairing remains planned for M3.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)
   - scrcpy 4.1
   - adb / platform-tools 37.0.0
-- No device/backend mirroring functionality is active yet.
-- No Android hardware testing beyond no-device baseline has been performed yet.
+- M1 is complete.
+- M2-T1 discovery is complete.
+- C1–C4 cold-start UI validation passed.
+- U1–U7 USB discovery hardware tests passed.
+- M2-T2 is the active task; scrcpy USB session launch/stop has been added.
+- The long authorization/status text overflow observed in U2 is addressed by
+  M2-T2 with constrained `Layout.maximumWidth` wrapping.
+- Wireless mirroring, device presets, audio/screen-off/recording controls, and
+  Hyprland phone-window styling remain unimplemented future work.
+- Real USB hardware mirroring (phone display, Android input, unplug/relaunch,
+  shell restart during session) requires human validation.
