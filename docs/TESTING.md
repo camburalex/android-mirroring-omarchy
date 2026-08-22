@@ -18,9 +18,14 @@ These checks do **not** validate runtime behavior or Omarchy integration.
 - Bar widget placement and panel summon/hide
 - Quickshell QML errors in logs
 
+## Parser checks
+
+- `node tests/AdbParser.test.js` runs the fixture suite against the real
+  production `qml/AdbParser.js`.
+
 ## Android hardware checks (NOT YET RUN)
 
-- ADB device detection
+- ADB device detection over USB
 - scrcpy USB and wireless launch
 - Android 11+ wireless pairing
 - Recording and quality presets
