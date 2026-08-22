@@ -1,6 +1,6 @@
 # Testing
 
-## Windows / static checks
+## Static checks
 
 - JSON parse of `manifest.json`.
 - Entry-point files exist and are relative.
@@ -10,7 +10,7 @@
 
 These checks do **not** validate runtime behavior or Omarchy integration.
 
-## Omarchy integration checks (NOT YET RUN)
+## Omarchy integration checks
 
 - `omarchy plugin validate <path>`
 - `omarchy-shell shell rescanPlugins`

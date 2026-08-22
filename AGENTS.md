@@ -21,8 +21,14 @@ upstream scrcpy as the mirroring engine. The plugin runs inside the existing
 - Track and stop only processes launched by this plugin. Never use global
   `pkill scrcpy`.
 - Long-running ADB/scrcpy work must not block the UI.
-- Windows is a development host only. Native Omarchy commands (e.g.
-  `omarchy plugin validate`) must be validated on a real Omarchy machine.
+- Development currently happens directly on the real Omarchy target.
+- Native Omarchy commands (e.g. `omarchy plugin validate`) may be run on the
+  target and are the authoritative integration signal.
+- Installed Omarchy source on this machine is valid read-only evidence.
+- External web research is owned by the technical lead; Devin must not
+  browse/search/fetch external sources unless the task explicitly authorizes it.
+- If a supervisor-provided upstream fact conflicts with installed local behavior,
+  stop and report the conflict instead of researching around it.
 - Current authoritative upstream source beats stale examples.
 - Keep diffs narrow; avoid unrelated refactors.
-- No force-pushing or history rewriting.
+- Normal Git operations are allowed; no force-pushing or history rewriting.

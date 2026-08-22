@@ -12,16 +12,20 @@ BarWidget {
     property var pluginRegistry: null
     property var barWidgetRegistry: null
 
-    // Compact placeholder for the Omarchy bar.
-    implicitWidth: label.implicitWidth + Style.space(16)
-    implicitHeight: root.barSize
+    implicitWidth: button.implicitWidth
+    implicitHeight: button.implicitHeight
 
-    Text {
-        id: label
-        anchors.centerIn: parent
+    WidgetButton {
+        id: button
+        anchors.fill: parent
+        bar: root.bar
         text: "\u2026"
-        color: root.bar ? root.bar.foreground : Color.foreground
-        font.family: root.bar ? root.bar.fontFamily : Style.font.family
-        font.pixelSize: Style.font.body
+        horizontalMargin: 7.5
+
+        onPressed: function(b) {
+            if (!root.bar) return
+            if (root.bar.shell && typeof root.bar.shell.toggle === "function")
+                root.bar.shell.toggle(root.moduleName, "{}")
+        }
     }
 }

@@ -15,10 +15,10 @@ provide Android device mirroring on the desktop.
 
 ## Development environment
 
-- Windows is suitable for source development and static checks only.
-- The actual runtime and integration target is a real Omarchy machine.
-- Do not install Omarchy, Hyprland, Quickshell, scrcpy, or ADB on Windows solely
-  for this task.
+- Development and integration testing currently happen directly on the real
+  Omarchy target.
+- Native Omarchy commands (e.g. `omarchy plugin validate`) are run on the target
+  and are the authoritative integration signal.
 
 ## License
 
