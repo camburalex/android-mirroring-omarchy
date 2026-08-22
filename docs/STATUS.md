@@ -11,6 +11,9 @@
 - M1 is complete.
 - M2-T1 implements live ADB device discovery with a fixture-tested parser,
   async Quickshell `Process`, and minimal panel UI. No scrcpy launched.
+- M2-T1B restored cold-start bar-widget loading by moving `DeviceManager`
+  from `QtObject` to `Quickshell.Scope`; the plugin now survives a full
+  `omarchy restart shell` and keeps the M2-T1 discovery behavior.
 - M2-T2 will own USB mirroring/session process lifecycle after review.
 - Wireless pairing remains planned for M3.
 - Installed target environment:

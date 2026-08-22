@@ -1,9 +1,13 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "AdbParser.js" as AdbParser
 
-QtObject {
+// Scope exposes `children` as its default property and is intended for
+// nonvisual Quickshell objects. QtObject does not provide a default data
+// property, so a direct `Process {}` child would fail on cold QML load.
+Scope {
     id: root
 
     property var devices: []
