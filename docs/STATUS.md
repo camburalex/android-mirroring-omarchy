@@ -31,7 +31,29 @@
 - M2-T2 is the active task; scrcpy USB session launch/stop has been added.
 - The long authorization/status text overflow observed in U2 is addressed by
   M2-T2 with constrained `Layout.maximumWidth` wrapping.
+- M2-T2B corrects USB session panel containment and stale session errors:
+  - ScrcpyBackend now classifies exits using startup/running/stopping state
+    instead of `activeSerial`, so startup failures report
+    "Could not start mirroring." and post-start failures report
+    "Mirroring ended unexpectedly."
+  - A `clearError()` method lets explicit user recovery (Refresh) clear a
+    stale session error without erasing bounded diagnostics.
+  - The panel layout is now bounded so the title, Refresh, session status,
+    Stop, device rows, and wrapped status text all remain inside the
+    KeyboardPanel card.
+- Hardware validation results (Redmi Note 8 Pro, Android 11):
+  - U1-U7 USB discovery: PASS
+  - H1 selected phone launches and displays: PASS
+  - H2 initial mouse input failed until the Xiaomi
+    "USB debugging (Security settings)" Developer Option was enabled and the
+    phone rebooted; H2R: PASS after that prerequisite
+  - H3 panel/session independence: PASS
+  - H4 owned Stop: PASS
+  - H5 closing scrcpy window and relaunching: PASS
+  - H6 unplug while mirroring: PASS
+  - H7 reconnect/relaunch: PASS
+  - H8 shell restart during active owned session: PASS
+  - H9 keyboard Mirror/Stop focus UX: deferred to M5
+- M2 is now complete. M3 wireless pairing is the next milestone.
 - Wireless mirroring, device presets, audio/screen-off/recording controls, and
   Hyprland phone-window styling remain unimplemented future work.
-- Real USB hardware mirroring (phone display, Android input, unplug/relaunch,
-  shell restart during session) requires human validation.

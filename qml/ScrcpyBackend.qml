@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "ScrcpyCommand.js" as ScrcpyCommand
+import "ScrcpyState.js" as ScrcpyState
 
 // Cold-start-safe owner for the tracked scrcpy Process. Scope is used because
 // it exposes `children` as the default property, so nonvisual Quickshell
@@ -56,6 +57,10 @@ Scope {
         scrcpyProc.running = false;
     }
 
+    function clearError() {
+        root.errorMessage = "";
+    }
+
     function _appendDiagnostic(line) {
         var text = String(line).replace(/\r\n?$/, "");
         if (text.length === 0) return;
@@ -86,7 +91,8 @@ Scope {
     }
 
     function _onExited(exitCode, exitStatus) {
-        var wasActive = root.activeSerial !== "";
+        var wasStarting = root.starting;
+        var wasRunning = root.running;
         var wasStopping = root.stopping;
 
         root.starting = false;
@@ -94,15 +100,15 @@ Scope {
         root.stopping = false;
         root._stopIntended = false;
 
-        if (wasActive) root.activeSerial = "";
+        if (root.activeSerial !== "") root.activeSerial = "";
 
-        if (!wasStopping && (exitCode !== 0 || exitStatus !== 0)) {
-            root.errorMessage = wasActive
-                ? "Mirroring ended unexpectedly."
-                : "Could not start mirroring.";
-        } else if (wasStopping) {
-            root.errorMessage = "";
-        }
+        root.errorMessage = ScrcpyState.classifyExit(
+            wasStarting,
+            wasRunning,
+            wasStopping,
+            exitCode,
+            exitStatus
+        );
 
         root.sessionEnded(wasStopping, exitCode);
     }

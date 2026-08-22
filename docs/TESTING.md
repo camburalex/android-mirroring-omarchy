@@ -44,9 +44,23 @@ Any QML integration change must also survive a full cold restart:
 - `node tests/ScrcpyCommand.test.js` runs the fixture suite against the real
   production `qml/ScrcpyCommand.js`.
 
-## Android hardware checks (NOT YET RUN)
+## Scrcpy backend state checks
 
-- ADB device detection over USB
-- scrcpy USB and wireless launch
-- Android 11+ wireless pairing
-- Recording and quality presets
+- `node tests/ScrcpyBackendState.test.js` runs the fixture suite against the
+  real production `qml/ScrcpyState.js` used by `ScrcpyBackend.qml`.
+
+## USB session regression checks (M2-T2B)
+
+- Panel controls (title, Refresh, session status, Stop, device rows,
+  wrapped status text) remain inside the KeyboardPanel bounds.
+- `Refresh` clears a stale "Mirroring ended unexpectedly." error.
+- Reconnect + Refresh does not leave the previous session error visible.
+- `Mirror` and `Stop` still own and terminate exactly the plugin's scrcpy
+  process.
+
+## Android hardware checks (M2)
+
+- ADB device detection over USB: validated
+- scrcpy USB launch, mirror, unplug, reconnect, and relaunch: validated
+- Android 11+ wireless pairing: not yet implemented (M3)
+- Recording and quality presets: not yet implemented (M4/M5)

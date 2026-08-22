@@ -68,7 +68,7 @@ Panel {
         focusTarget: keyCatcher
         centerOnBar: true
         contentWidth: Style.space(280)
-        contentHeight: Math.max(Style.space(160), contentLayout.implicitHeight + Style.space(32))
+        contentHeight: Math.max(Style.space(160), panel.fittedContentHeight(contentLayout.implicitHeight))
 
         PanelKeyCatcher {
             id: keyCatcher
@@ -77,19 +77,21 @@ Panel {
             onTabRequested: function(direction) { root._moveFocus(direction) }
             onActivateRequested: root._activateFocusedItem()
 
-            ColumnLayout {
+            Column {
                 id: contentLayout
-                anchors.fill: parent
+                width: parent.width
                 spacing: Style.space(12)
 
                 RowLayout {
-                    Layout.fillWidth: true
+                    width: parent.width
+                    spacing: Style.space(8)
 
                     Text {
                         text: "Android Mirroring"
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
                         Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                     }
 
@@ -97,8 +99,24 @@ Panel {
                         Layout.fillWidth: true
                     }
 
+                    Button {
+                        text: "Refresh"
+                        enabled: !deviceManager.busy
+                        property var actionFn: function() {
+                            scrcpyBackend.clearError()
+                            deviceManager.refresh()
+                        }
+                        onClicked: actionFn()
+                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    }
+                }
+
+                RowLayout {
+                    width: parent.width
+                    visible: scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping
+                    spacing: Style.space(8)
+
                     Text {
-                        visible: scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping
                         text: scrcpyBackend.stopping
                             ? "Stopping\u2026"
                             : (scrcpyBackend.starting ? "Starting\u2026" : "Mirroring")
@@ -106,23 +124,17 @@ Panel {
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body
                         textFormat: Text.PlainText
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
                     }
 
                     Button {
-                        id: headerStopBtn
-                        visible: scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping
-                        enabled: scrcpyBackend.running || scrcpyBackend.starting
                         text: "Stop"
+                        enabled: scrcpyBackend.running || scrcpyBackend.starting
                         property var actionFn: function() { scrcpyBackend.stopMirroring() }
-                        onClicked: actionFn()
-                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                    }
-
-                    Button {
-                        text: "Refresh"
-                        enabled: !deviceManager.busy
-                        property var actionFn: function() { deviceManager.refresh() }
                         onClicked: actionFn()
                         Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                     }
@@ -136,7 +148,7 @@ Panel {
                     font.pixelSize: Style.font.body
                     textFormat: Text.PlainText
                     wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
+                    width: parent.width
                 }
 
                 Text {
@@ -147,7 +159,7 @@ Panel {
                     font.pixelSize: Style.font.body
                     textFormat: Text.PlainText
                     wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
+                    width: parent.width
                 }
 
                 Text {
@@ -158,7 +170,7 @@ Panel {
                     font.pixelSize: Style.font.body
                     textFormat: Text.PlainText
                     wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
+                    width: parent.width
                 }
 
                 Text {
@@ -169,77 +181,97 @@ Panel {
                     font.pixelSize: Style.font.body
                     textFormat: Text.PlainText
                     wrapMode: Text.WordWrap
-                    Layout.fillWidth: true
+                    width: parent.width
                 }
 
-                Repeater {
-                    model: deviceManager.devices
-                    visible: !deviceManager.busy && deviceManager.error === ""
+                Column {
+                    id: deviceList
+                    width: parent.width
+                    spacing: Style.space(10)
+                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && deviceManager.devices.length > 0
 
-                    RowLayout {
-                        id: deviceRow
-                        Layout.fillWidth: true
+                    Repeater {
+                        model: deviceManager.devices
 
-                        property bool isActive: scrcpyBackend.activeSerial === modelData.serial
-                            && (scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping)
+                        delegate: Column {
+                            width: parent.width
+                            spacing: Style.space(2)
 
-                        Text {
-                            id: deviceLabel
-                            text: modelData.label
-                            color: Color.foreground
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.body
-                            textFormat: Text.PlainText
-                            elide: Text.ElideRight
-                            Layout.fillWidth: true
-                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
-                        }
+                            property bool isActive: scrcpyBackend.activeSerial === modelData.serial
+                                && (scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping)
 
-                        Text {
-                            text: {
-                                if (deviceRow.isActive) {
-                                    if (scrcpyBackend.stopping) return "Stopping\u2026";
-                                    if (scrcpyBackend.starting) return "Starting\u2026";
-                                    return "Mirroring";
+                            RowLayout {
+                                width: parent.width
+                                spacing: Style.space(8)
+
+                                Text {
+                                    id: deviceLabel
+                                    text: modelData.label
+                                    color: isActive ? Color.accent : Color.foreground
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.body
+                                    textFormat: Text.PlainText
+                                    elide: Text.ElideRight
+                                    Layout.fillWidth: true
+                                    Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
                                 }
-                                return deviceManager.stateText(modelData);
-                            }
-                            color: Color.foreground
-                            font.family: Style.font.family
-                            font.pixelSize: Style.font.body
-                            textFormat: Text.PlainText
-                            wrapMode: Text.WordWrap
-                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                            Layout.maximumWidth: Math.max(
-                                Style.space(80),
-                                contentLayout.width
-                                - deviceLabel.implicitWidth
-                                - parent.spacing
-                                - (rowActionBtn.visible ? rowActionBtn.implicitWidth + parent.spacing : 0)
-                            )
-                        }
 
-                        Button {
-                            id: rowActionBtn
-                            visible: !deviceRow.isActive
-                                && modelData.rawState === "device"
-                                && !scrcpyBackend.running
-                                && !scrcpyBackend.starting
-                                && !scrcpyBackend.stopping
-                            text: "Mirror"
-                            property var actionFn: function() { scrcpyBackend.startMirroring(modelData.serial) }
-                            onClicked: actionFn()
-                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                Button {
+                                    id: rowActionBtn
+                                    visible: !isActive
+                                        && modelData.rawState === "device"
+                                        && !scrcpyBackend.running
+                                        && !scrcpyBackend.starting
+                                        && !scrcpyBackend.stopping
+                                    text: "Mirror"
+                                    property var actionFn: function() { scrcpyBackend.startMirroring(modelData.serial) }
+                                    onClicked: actionFn()
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                }
+
+                                Text {
+                                    visible: isActive
+                                    text: "Active"
+                                    color: Color.accent
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.body
+                                    textFormat: Text.PlainText
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                }
+                            }
+
+                            Text {
+                                visible: !isActive
+                                text: deviceManager.stateText(modelData)
+                                color: Color.foreground
+                                font.family: Style.font.family
+                                font.pixelSize: Style.font.body
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                width: parent.width
+                            }
                         }
                     }
                 }
 
-                Button {
-                    id: closeBtn
-                    text: "Close"
-                    property var actionFn: function() { root.close() }
-                    onClicked: actionFn()
-                    Layout.alignment: Qt.AlignHCenter
+                RowLayout {
+                    width: parent.width
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+
+                    Button {
+                        id: closeBtn
+                        text: "Close"
+                        property var actionFn: function() { root.close() }
+                        onClicked: actionFn()
+                        Layout.alignment: Qt.AlignHCenter
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
                 }
             }
         }
