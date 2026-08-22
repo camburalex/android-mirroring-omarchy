@@ -1,0 +1,28 @@
+# Agent Rules: Omarchy Android Mirroring Plugin
+
+## Purpose
+A third-party Omarchy Quattro plugin for Android device mirroring. v0.1 uses
+upstream scrcpy as the mirroring engine. The plugin runs inside the existing
+`omarchy-shell` process.
+
+## Architecture invariants
+- Upstream scrcpy is the v0.1 backend. Do not fork, rewrite, proxy, or redecode
+  its video stream.
+- Integrate into the existing `omarchy-shell`; do not create a separate
+  Quickshell desktop process.
+- Plugin entry points are ordinary QML `Item`s. Do not use `ShellRoot`.
+- Do not modify package-owned Omarchy files.
+- Do not rewrite user configuration destructively; do not silently replace
+  keybindings.
+- Process execution must prefer `program + argv` over shell string construction
+  where supported.
+- Pairing codes are transient credentials; never persist them or log them
+  normally.
+- Track and stop only processes launched by this plugin. Never use global
+  `pkill scrcpy`.
+- Long-running ADB/scrcpy work must not block the UI.
+- Windows is a development host only. Native Omarchy commands (e.g.
+  `omarchy plugin validate`) must be validated on a real Omarchy machine.
+- Current authoritative upstream source beats stale examples.
+- Keep diffs narrow; avoid unrelated refactors.
+- No force-pushing or history rewriting.

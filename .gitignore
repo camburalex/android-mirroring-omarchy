@@ -1,0 +1,11 @@
+# Editor / OS noise only — the plugin is loaded directly by omarchy-shell
+*.log
+*~
+*.swp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+__pycache__/
+*.qmlc
+*.jsc
