@@ -209,7 +209,6 @@ Panel {
                             font.pixelSize: Style.font.body
                             textFormat: Text.PlainText
                             wrapMode: Text.WordWrap
-                            horizontalAlignment: Text.AlignRight
                             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                             Layout.maximumWidth: Math.max(
                                 Style.space(80),
