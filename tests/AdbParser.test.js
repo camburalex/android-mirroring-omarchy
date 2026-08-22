@@ -109,10 +109,19 @@ function run() {
     assert.strictEqual(devices[0].rawState, "device")
 
     assert.strictEqual(parser.stateText("device", "usb"), "USB \u00b7 Ready")
+    assert.strictEqual(parser.stateText("device", "wireless"), "Wireless \u00b7 Ready")
     assert.strictEqual(parser.stateText("device", "unknown"), "Ready")
     assert.strictEqual(parser.stateText("unauthorized", "usb").indexOf("Authorization required") >= 0, true)
     assert.strictEqual(parser.stateText("offline", "unknown").indexOf("offline") >= 0, true)
     assert.strictEqual(parser.stateText("foobar", "unknown"), "Unavailable")
+
+    devices = parser.parseDevices([
+        "List of devices attached",
+        "192.168.1.20:5555\tdevice product:MyProduct model:MyModel device:MyDevice transport_id:3"
+    ].join("\n"), "192.168.1.20:5555")
+    assert.strictEqual(devices.length, 1)
+    assert.strictEqual(devices[0].connection, "wireless")
+    assert.strictEqual(devices[0].label, "MyModel")
 
     console.log("All AdbParser fixtures passed.")
 }

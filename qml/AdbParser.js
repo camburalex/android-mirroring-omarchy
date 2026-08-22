@@ -15,7 +15,8 @@ function isNoise(line) {
     return false
 }
 
-function parseDevices(text) {
+function parseDevices(text, wirelessContext) {
+    var context = String(wirelessContext || "")
     var normalized = normalizeNewlines(text)
     var lines = normalized.split("\n")
     var devices = []
@@ -42,6 +43,13 @@ function parseDevices(text) {
         }
 
         var connection = metadata.usb ? "usb" : "unknown"
+        // If this serial exactly matches an explicitly-connected wireless
+        // endpoint and the record carries no USB metadata, classify it as a
+        // wireless transport. This avoids misclassifying emulators or unknown
+        // network devices.
+        if (context && !metadata.usb && serial === context) {
+            connection = "wireless"
+        }
         var label = metadata.model || serial
 
         devices.push({
@@ -63,7 +71,9 @@ function parseDevices(text) {
 
 function stateText(rawState, connection) {
     if (rawState === "device") {
-        return connection === "usb" ? "USB \u00b7 Ready" : "Ready"
+        if (connection === "usb") return "USB \u00b7 Ready"
+        if (connection === "wireless") return "Wireless \u00b7 Ready"
+        return "Ready"
     }
     if (rawState === "unauthorized") {
         return "Authorization required. Accept the USB debugging prompt on your phone."

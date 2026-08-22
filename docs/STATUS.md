@@ -1,6 +1,6 @@
 # Status
 
-- Milestone: M2 (in progress)
+- Milestone: M3 (in progress)
 - M0-T1 bootstrap completed.
 - M1-T1 native plugin-shell bring-up completed (manifest, plugin loading, shell
   IPC show/hide passed).
@@ -18,42 +18,43 @@
   `Process`, a production `scrcpy -s <serial>` argv builder, and panel
   Mirror/Stop controls. Cold-start QML load and bar placement passed after
   `omarchy restart shell`.
-- Wireless pairing remains planned for M3.
+- M2-T2B corrects USB session panel containment and stale session errors.
+- M2 is complete with R1–R6 user validation.
+- M3-T1 implements secure Android 11+ wireless pairing and live wireless
+  connection:
+  - adds a `Scope`-owned `WirelessManager` with tracked `Process` pair/connect
+    pipelines;
+  - accepts a pairing endpoint, a six-digit pairing code, and a separate
+    connection endpoint;
+  - validates all input before launching ADB;
+  - launches `adb pair <endpoint>` with the pairing code written to stdin after
+    the process starts (the code never appears in argv, state, logs, or disk);
+  - on success, automatically launches `adb connect <endpoint>`;
+  - refreshes the existing `DeviceManager` device list after a successful
+    connect;
+  - classifies a connected transport as `Wireless · Ready` only when its serial
+    exactly matches the explicit connection endpoint and no USB metadata is
+    present;
+  - exposes the new wireless device through the existing device/session UI,
+    reusing the existing scrcpy backend with explicit serial selection;
+  - adds a compact "Pair wirelessly" form to the existing `KeyboardPanel`;
+  - adds `qml/WirelessCommand.js` and `tests/WirelessCommand.test.js` with
+    endpoint, pairing-code, and command fixtures.
+- M3-T2 remains required for saved wireless device metadata and
+  reconnect-after-restart behavior.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)
   - scrcpy 4.1
   - adb / platform-tools 37.0.0
-- M1 is complete.
-- M2-T1 discovery is complete.
 - C1–C4 cold-start UI validation passed.
-- U1–U7 USB discovery hardware tests passed.
-- M2-T2 is the active task; scrcpy USB session launch/stop has been added.
-- The long authorization/status text overflow observed in U2 is addressed by
-  M2-T2 with constrained `Layout.maximumWidth` wrapping.
-- M2-T2B corrects USB session panel containment and stale session errors:
-  - ScrcpyBackend now classifies exits using startup/running/stopping state
-    instead of `activeSerial`, so startup failures report
-    "Could not start mirroring." and post-start failures report
-    "Mirroring ended unexpectedly."
-  - A `clearError()` method lets explicit user recovery (Refresh) clear a
-    stale session error without erasing bounded diagnostics.
-  - The panel layout is now bounded so the title, Refresh, session status,
-    Stop, device rows, and wrapped status text all remain inside the
-    KeyboardPanel card.
-- Hardware validation results (Redmi Note 8 Pro, Android 11):
-  - U1-U7 USB discovery: PASS
-  - H1 selected phone launches and displays: PASS
-  - H2 initial mouse input failed until the Xiaomi
-    "USB debugging (Security settings)" Developer Option was enabled and the
-    phone rebooted; H2R: PASS after that prerequisite
-  - H3 panel/session independence: PASS
-  - H4 owned Stop: PASS
-  - H5 closing scrcpy window and relaunching: PASS
-  - H6 unplug while mirroring: PASS
-  - H7 reconnect/relaunch: PASS
-  - H8 shell restart during active owned session: PASS
-  - H9 keyboard Mirror/Stop focus UX: deferred to M5
-- M2 is now complete. M3 wireless pairing is the next milestone.
-- Wireless mirroring, device presets, audio/screen-off/recording controls, and
-  Hyprland phone-window styling remain unimplemented future work.
+- U1–U7 USB discovery hardware tests passed (M2).
+- R1–R6 M2-T2B USB session regression: PASS.
+- M3-T1 cold-start and panel-load validation passed after
+  `omarchy restart shell` (no QML load errors for `BarWidget.qml`,
+  `DeviceManager.qml`, `WirelessManager.qml`, or `WirelessCommand.js`).
+- M3-T1 wireless pair/connect/mirroring: REQUIRES USER HARDWARE VALIDATION.
+- Wireless mirroring is now implemented for manual pairing; saved-device
+  persistence, reconnect-after-restart, device presets, audio/screen-off/
+  recording controls, and Hyprland phone-window styling remain unimplemented
+  future work.

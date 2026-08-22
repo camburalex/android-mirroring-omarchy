@@ -1,0 +1,137 @@
+// WirelessCommand.js — validation, command building, and output classification
+// for Android 11+ Wireless Debugging ADB pair/connect workflows.
+//
+// This is plain JavaScript so it can be imported by both QML
+// (`import "WirelessCommand.js" as WirelessCommand`) and a Node test harness
+// (`require`).
+
+// Reject NUL, all ASCII control characters, and ASCII DEL. This is the same
+// framing rule used by ScrcpyCommand.js: it prevents newline / tab / space
+// injection while keeping ordinary printable host characters safe.
+var INVALID_FRAMING = /[\x00-\x20\x7F]/;
+var PORT_PATTERN = /^[0-9]+$/;
+var PAIRING_CODE_PATTERN = /^\d{6}$/;
+
+function _fail(reason) {
+    return { ok: false, reason: reason };
+}
+
+function _ok(host, port, value) {
+    return { ok: true, host: host, port: port, value: value };
+}
+
+// Parse and validate a HOST:PORT or [HOST]:PORT endpoint.
+// Returns an object with ok, host, port, and the original value.
+//
+// IPv6 is accepted when bracketed; unbracketed IPv6 is rejected to avoid
+// colon/port ambiguity. This keeps validation structural and small.
+function validateEndpoint(endpoint) {
+    if (typeof endpoint !== "string") return _fail("Endpoint must be a string.");
+    if (endpoint.length === 0) return _fail("Endpoint must not be empty.");
+    if (INVALID_FRAMING.test(endpoint)) return _fail("Endpoint contains invalid characters.");
+
+    var host = "";
+    var portPart = "";
+
+    if (endpoint.charAt(0) === "[") {
+        var close = endpoint.indexOf("]");
+        if (close < 0) return _fail("IPv6 endpoint is missing closing bracket.");
+        if (close === 1) return _fail("Host must not be empty.");
+        host = endpoint.substring(1, close);
+        if (close + 1 >= endpoint.length || endpoint.charAt(close + 1) !== ":") {
+            return _fail("IPv6 endpoint must include a port after the bracket.");
+        }
+        portPart = endpoint.substring(close + 2);
+    } else {
+        var colon = endpoint.lastIndexOf(":");
+        if (colon < 0) return _fail("Endpoint must include a port.");
+        host = endpoint.substring(0, colon);
+        portPart = endpoint.substring(colon + 1);
+        if (host.indexOf(":") >= 0) return _fail("IPv6 endpoints must be wrapped in brackets.");
+    }
+
+    if (host.length === 0) return _fail("Host must not be empty.");
+    if (INVALID_FRAMING.test(host)) return _fail("Host contains invalid characters.");
+    if (portPart.length === 0) return _fail("Port must not be empty.");
+    if (INVALID_FRAMING.test(portPart)) return _fail("Port contains invalid characters.");
+    if (!PORT_PATTERN.test(portPart)) return _fail("Port must be numeric.");
+
+    var port = parseInt(portPart, 10);
+    if (isNaN(port) || port < 1 || port > 65535) return _fail("Port must be 1–65535.");
+
+    return _ok(host, port, endpoint);
+}
+
+// Pairing codes for the Android 11+ pairing-code workflow are exactly six
+// ASCII decimal digits. This rejects spaces, leading zeros are allowed.
+function isValidPairingCode(code) {
+    if (typeof code !== "string") return false;
+    if (code.length !== 6) return false;
+    return PAIRING_CODE_PATTERN.test(code);
+}
+
+// Build the argv for `adb pair HOST[:PORT]`. The pairing code is intentionally
+// omitted; the caller must write it to the Process stdin after it starts.
+function buildPairCommand(endpoint) {
+    if (!validateEndpoint(endpoint).ok) {
+        throw new Error("Invalid or unsafe ADB pair endpoint");
+    }
+    return { program: "adb", argv: ["adb", "pair", endpoint] };
+}
+
+// Build the argv for `adb connect HOST[:PORT]`.
+function buildConnectCommand(endpoint) {
+    if (!validateEndpoint(endpoint).ok) {
+        throw new Error("Invalid or unsafe ADB connect endpoint");
+    }
+    return { program: "adb", argv: ["adb", "connect", endpoint] };
+}
+
+function _hasNeedle(text, needle) {
+    return String(text || "").indexOf(needle) >= 0;
+}
+
+function _combined(out, err) {
+    return String(out || "").trim() + "\n" + String(err || "").trim();
+}
+
+// Classify the result of an `adb pair ...` run. Do not trust exit code alone:
+// some failures may be printed to stdout/stderr. The success string used by
+// ADB is "Successfully paired to ", while several failure markers are possible.
+function classifyPairResult(exitCode, stdout, stderr) {
+    if (exitCode !== 0) return { ok: false };
+
+    var combined = _combined(stdout, stderr);
+    if (_hasNeedle(combined, "No pairing code provided")) return { ok: false };
+    if (_hasNeedle(combined, "Failed:")) return { ok: false };
+    if (_hasNeedle(combined, "Failed to")) return { ok: false };
+    if (_hasNeedle(combined, "failed to")) return { ok: false };
+    if (_hasNeedle(combined, "error:")) return { ok: false };
+
+    if (_hasNeedle(combined, "Successfully paired to ")) return { ok: true };
+
+    return { ok: false };
+}
+
+// Classify the result of an `adb connect ...` run. ADB can return exit code 0
+// with a textual "failed to connect to" message, so the output is inspected.
+// Success is indicated by "connected to ..." or "already connected to ...".
+function classifyConnectResult(exitCode, stdout, stderr) {
+    var combined = _combined(stdout, stderr);
+    if (_hasNeedle(combined, "failed to connect to")) return { ok: false };
+    if (_hasNeedle(combined, "no such device")) return { ok: false };
+    if (_hasNeedle(combined, "connected to ")) return { ok: true };
+    if (exitCode !== 0) return { ok: false };
+    return { ok: false };
+}
+
+if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
+    module.exports = {
+        validateEndpoint: validateEndpoint,
+        isValidPairingCode: isValidPairingCode,
+        buildPairCommand: buildPairCommand,
+        buildConnectCommand: buildConnectCommand,
+        classifyPairResult: classifyPairResult,
+        classifyConnectResult: classifyConnectResult
+    };
+}

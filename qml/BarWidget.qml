@@ -18,6 +18,10 @@ Panel {
         id: scrcpyBackend
     }
 
+    WirelessManager {
+        id: wirelessManager
+    }
+
     Connections {
         target: root
         function onOpenedChanged() {
@@ -31,6 +35,14 @@ Panel {
         function onSessionEnded(expected, exitCode) {
             // Refresh discovery so an unplug or a recovered device is shown
             // correctly after the session finishes.
+            deviceManager.refresh()
+        }
+    }
+
+    Connections {
+        target: wirelessManager
+        function onConnected(endpoint) {
+            deviceManager.wirelessEndpoint = endpoint
             deviceManager.refresh()
         }
     }
@@ -73,6 +85,7 @@ Panel {
         PanelKeyCatcher {
             id: keyCatcher
             anchors.fill: parent
+            blocked: pairingAddrField.activeFocus || pairingCodeField.activeFocus || connAddrField.activeFocus
             onCloseRequested: root.close()
             onTabRequested: function(direction) { root._moveFocus(direction) }
             onActivateRequested: root._activateFocusedItem()
@@ -251,6 +264,162 @@ Panel {
                                 width: parent.width
                             }
                         }
+                    }
+                }
+
+                Column {
+                    id: wirelessSection
+                    width: parent.width
+                    spacing: Style.space(10)
+
+                    Text {
+                        text: "Pair wirelessly"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(2)
+
+                        Text {
+                            text: "Pairing address"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                        }
+
+                        Text {
+                            text: "From ‘Pair device with pairing code’"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.bodySmall
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        TextField {
+                            id: pairingAddrField
+                            width: parent.width
+                            placeholderText: "192.168.1.20:37123"
+                        }
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(2)
+
+                        Text {
+                            text: "Pairing code"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                        }
+
+                        Text {
+                            text: "Temporary six-digit code"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.bodySmall
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        TextField {
+                            id: pairingCodeField
+                            width: parent.width
+                            placeholderText: "123456"
+                            password: true
+                            maximumLength: 6
+                            inputMethodHints: Qt.ImhDigitsOnly
+                            onAccepted: pairBtn.actionFn()
+                        }
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(2)
+
+                        Text {
+                            text: "Connection address"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                        }
+
+                        Text {
+                            text: "IP address & port on the main Wireless debugging screen"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.bodySmall
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        TextField {
+                            id: connAddrField
+                            width: parent.width
+                            placeholderText: "192.168.1.20:5555"
+                            onAccepted: pairBtn.actionFn()
+                        }
+                    }
+
+                    Button {
+                        id: pairBtn
+                        text: "Pair"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() {
+                            scrcpyBackend.clearError()
+                            wirelessManager.clearError()
+                            wirelessManager.pairAndConnect(
+                                pairingAddrField.text,
+                                connAddrField.text,
+                                pairingCodeField.text
+                            )
+                            pairingCodeField.text = ""
+                        }
+                        onClicked: actionFn()
+                    }
+
+                    Text {
+                        visible: wirelessManager.busy
+                        text: wirelessManager.state === "pairing" ? "Pairing…" : "Connecting…"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Text {
+                        visible: wirelessManager.errorMessage !== ""
+                        text: wirelessManager.errorMessage
+                        color: Color.urgent
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Text {
+                        visible: wirelessManager.state === "connected"
+                        text: "Connected. The device will appear in the list after Refresh."
+                        color: Color.accent
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
                     }
                 }
 

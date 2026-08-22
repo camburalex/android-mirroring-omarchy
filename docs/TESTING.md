@@ -49,6 +49,12 @@ Any QML integration change must also survive a full cold restart:
 - `node tests/ScrcpyBackendState.test.js` runs the fixture suite against the
   real production `qml/ScrcpyState.js` used by `ScrcpyBackend.qml`.
 
+## Wireless pairing checks
+
+- `node tests/WirelessCommand.test.js` runs the fixture suite for endpoint
+  validation, pairing-code validation, and `adb pair` / `adb connect` command
+  building against the real production `qml/WirelessCommand.js`.
+
 ## USB session regression checks (M2-T2B)
 
 - Panel controls (title, Refresh, session status, Stop, device rows,

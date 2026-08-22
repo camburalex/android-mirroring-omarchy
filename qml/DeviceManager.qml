@@ -14,6 +14,11 @@ Scope {
     property bool busy: false
     property string error: ""
 
+    // If set, a device whose serial exactly matches this endpoint and which
+    // carries no USB metadata is reported as a wireless transport. This is set
+    // from a successful WirelessManager connect and is not persisted.
+    property string wirelessEndpoint: ""
+
     property string _stdoutText: ""
     property string _stderrText: ""
 
@@ -66,7 +71,7 @@ Scope {
             }
 
             var out = String(root._stdoutText || adbStdout.text || "")
-            root.devices = AdbParser.parseDevices(out)
+            root.devices = AdbParser.parseDevices(out, root.wirelessEndpoint)
         }
     }
 }
