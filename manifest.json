@@ -5,12 +5,10 @@
   "version": "0.0.0-dev",
   "description": "Third-party Android device mirroring plugin for Omarchy (early development)",
   "kinds": [
-    "bar-widget",
-    "panel"
+    "bar-widget"
   ],
   "entryPoints": {
-    "barWidget": "qml/BarWidget.qml",
-    "panel": "qml/Panel.qml"
+    "barWidget": "qml/BarWidget.qml"
   },
   "barWidget": {
     "displayName": "Android Mirroring",
