@@ -146,8 +146,13 @@
   - recording isolation (Audio On + Screen Off Off): PASS
   - recording isolation (Audio On + Screen Off On): PASS
 - M5-T1 native Hyprland phone-window integration: PASS.
-- M5-T2 remains active. Pending M5-T2 polish includes:
-  - dismiss/control-panel behavior after successful mirror launch
+- M5-T2A implements panel dismissal from the existing ScrcpyBackend
+  `sessionStarted()` lifecycle event. The bar-widget Panel calls its existing
+  `close()` method only when the backend confirms scrcpy has started, not
+  directly from the Mirror click. Pre-start validation and recording-preparation
+  failures therefore remain visible in the open panel. Await human hardware
+  validation.
+- M5 remains ACTIVE. Remaining M5 polish includes:
   - keyboard/focus UX
   - numeric keypad issue in Update Address / numeric-entry UI (numeric keypad
     input may fail in the Update Address/port field even when the Num Lock LED

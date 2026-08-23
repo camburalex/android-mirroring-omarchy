@@ -51,7 +51,11 @@ Panel {
 
     Connections {
         target: scrcpyBackend
-        function onSessionStarted() {}
+        function onSessionStarted() {
+            // Dismiss the control panel once the backend confirms scrcpy has
+            // actually started. Do not close directly from the Mirror click.
+            root.close()
+        }
         function onSessionEnded(expected, exitCode) {
             // Refresh discovery so an unplug or a recovered device is shown
             // correctly after the session finishes.
