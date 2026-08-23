@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import QtQuick.Window
 import qs.Commons
 import qs.Ui
+import "ScrcpyCommand.js" as ScrcpyCommand
 import "WirelessCommand.js" as WirelessCommand
 
 Panel {
@@ -18,6 +19,11 @@ Panel {
     property string _pendingWirelessEndpoint: ""
     property string _pendingRecordId: ""
     property var _updateRecord: null
+
+    property string _selectedPreset: "balanced"
+    property bool _audioOn: true
+    property bool _screenOff: false
+    readonly property bool _controlsEnabled: !scrcpyBackend.running && !scrcpyBackend.starting && !scrcpyBackend.stopping
 
     DeviceManager {
         id: deviceManager
@@ -186,6 +192,26 @@ Panel {
     function _activateFocusedItem() {
         var current = Window.activeFocusItem
         if (current && typeof current.actionFn === "function") current.actionFn()
+    }
+
+    function _buildOptions() {
+        return {
+            preset: root._selectedPreset,
+            audioEnabled: root._audioOn,
+            screenOff: root._screenOff
+        }
+    }
+
+    function _setPreset(preset) {
+        if (ScrcpyCommand.PRESETS[preset]) root._selectedPreset = preset
+    }
+
+    function _cycleAudio() {
+        root._audioOn = !root._audioOn
+    }
+
+    function _cycleScreenOff() {
+        root._screenOff = !root._screenOff
     }
 
     function _startPairStep2() {
@@ -400,6 +426,129 @@ Panel {
                 }
 
                 Column {
+                    id: controlsSection
+                    width: parent.width
+                    spacing: Style.space(12)
+
+                    Text {
+                        text: "Controls"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(4)
+
+                        Text {
+                            text: "Preset"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.bodySmall
+                            textFormat: Text.PlainText
+                        }
+
+                        Column {
+                            width: parent.width
+                            spacing: Style.space(4)
+
+                            Button {
+                                text: ScrcpyCommand.PRESETS["performance"].label
+                                width: parent.width
+                                focusable: true
+                                bordered: true
+                                selected: root._selectedPreset === "performance"
+                                enabled: root._controlsEnabled
+                                property var actionFn: function() { root._setPreset("performance") }
+                                onClicked: actionFn()
+                            }
+
+                            Button {
+                                text: ScrcpyCommand.PRESETS["balanced"].label
+                                width: parent.width
+                                focusable: true
+                                bordered: true
+                                selected: root._selectedPreset === "balanced"
+                                enabled: root._controlsEnabled
+                                property var actionFn: function() { root._setPreset("balanced") }
+                                onClicked: actionFn()
+                            }
+
+                            Button {
+                                text: ScrcpyCommand.PRESETS["quality"].label
+                                width: parent.width
+                                focusable: true
+                                bordered: true
+                                selected: root._selectedPreset === "quality"
+                                enabled: root._controlsEnabled
+                                property var actionFn: function() { root._setPreset("quality") }
+                                onClicked: actionFn()
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Style.space(8)
+
+                        Text {
+                            text: "Audio"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        Button {
+                            text: root._audioOn ? "On" : "Off"
+                            focusable: true
+                            bordered: true
+                            selected: root._audioOn
+                            enabled: root._controlsEnabled
+                            property var actionFn: function() { root._cycleAudio() }
+                            onClicked: actionFn()
+                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Style.space(8)
+
+                        Text {
+                            text: "Screen off"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        Button {
+                            text: root._screenOff ? "On" : "Off"
+                            focusable: true
+                            bordered: true
+                            selected: root._screenOff
+                            enabled: root._controlsEnabled
+                            property var actionFn: function() { root._cycleScreenOff() }
+                            onClicked: actionFn()
+                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        }
+                    }
+                }
+
+                Column {
                     id: deviceList
                     width: parent.width
                     spacing: Style.space(10)
@@ -443,7 +592,7 @@ Panel {
                                         && !scrcpyBackend.starting
                                         && !scrcpyBackend.stopping
                                     text: "Mirror"
-                                    property var actionFn: function() { scrcpyBackend.startMirroring(modelData.device.serial) }
+                                    property var actionFn: function() { scrcpyBackend.startMirroring(modelData.device.serial, root._buildOptions()) }
                                     onClicked: actionFn()
                                     Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                 }

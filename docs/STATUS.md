@@ -1,6 +1,6 @@
 # Status
 
-- Milestone: M3 (in progress)
+- Milestone: M3 (PASS)
 - M0-T1 bootstrap completed.
 - M1-T1 native plugin-shell bring-up completed (manifest, plugin loading, shell
   IPC show/hide passed).
@@ -83,7 +83,10 @@
   `omarchy restart shell` (no QML load errors for `BarWidget.qml`,
   `DeviceManager.qml`, `WirelessManager.qml`, or `WirelessCommand.js`).
 - M3-T1 wireless pair/connect/mirroring: REQUIRES USER HARDWARE VALIDATION.
-- Wireless mirroring is now implemented for manual pairing; saved-device
-  persistence, reconnect-after-restart, device presets, audio/screen-off/
-  recording controls, and Hyprland phone-window styling remain unimplemented
-  future work.
+- M3 final hardware validation passed.
+- M4 is now active, branched from `d6c1a61`.
+- M4-T1 implements Performance/Balanced/Quality presets, Audio On/Off, and
+  Screen off On/Off in the production `ScrcpyCommand.js` builder and the
+  `BarWidget.qml` panel. Balanced is the default preset. Recording remains
+  pending M4-T2. Preset/audio/screen-off hardware validation is still required
+  after source review.

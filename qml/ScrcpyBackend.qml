@@ -20,11 +20,12 @@ Scope {
 
     property string _diagBuffer: ""
     property bool _stopIntended: false
+    property var _sessionOptions: null
 
     signal sessionStarted()
     signal sessionEnded(bool expected, int exitCode)
 
-    function startMirroring(serial) {
+    function startMirroring(serial, options) {
         if (root.running || root.starting || root.stopping) {
             console.warn("ScrcpyBackend: ignoring start while a session is active");
             return;
@@ -35,12 +36,21 @@ Scope {
             return;
         }
 
-        var cmd = ScrcpyCommand.buildCommand(serial);
+        var sessionOptions;
+        var cmd;
+        try {
+            sessionOptions = ScrcpyCommand.normalizeOptions(options);
+            cmd = ScrcpyCommand.buildCommand(serial, sessionOptions);
+        } catch (err) {
+            root.errorMessage = err.message || "Invalid launch options.";
+            return;
+        }
 
         root.errorMessage = "";
         root._diagBuffer = "";
         root._stopIntended = false;
         root.activeSerial = serial;
+        root._sessionOptions = sessionOptions;
         root.starting = true;
         root.stopping = false;
 
@@ -99,6 +109,7 @@ Scope {
         root.running = false;
         root.stopping = false;
         root._stopIntended = false;
+        root._sessionOptions = null;
 
         if (root.activeSerial !== "") root.activeSerial = "";
 

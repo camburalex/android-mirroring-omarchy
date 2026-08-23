@@ -35,3 +35,12 @@ upstream scrcpy as the mirroring engine. The plugin runs inside the existing
 - Repository searches and diagnostics stay inside the repository and
   task-authorized paths; do not recursively scan the user's home directory,
   unrelated config/state directories, or collect unrelated credentials/data.
+
+## Git / commit policy
+- Devin may create task branches, edit/test/deploy, and inspect diffs.
+- After validation, Devin stages only the explicit intended task files.
+- Devin MUST NOT create commits, amend, rebase, merge, cherry-pick, tag, or
+  push unless the human explicitly authorizes it.
+- The human owns the commit message and the final commit.
+- Do not add automated Devin attribution, Co-Authored-By, Signed-off-by, or
+  similar trailers.
