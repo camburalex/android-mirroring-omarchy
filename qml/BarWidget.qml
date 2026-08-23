@@ -65,7 +65,8 @@ Panel {
 
     Connections {
         target: deviceManager
-        function onDevicesChanged() { root._onDevicesRefreshed() }
+        function onDevicesChanged() { root._rebuildDisplayItems() }
+        function onRefreshCompleted(success) { root._onDevicesRefreshed() }
     }
 
     Connections {
@@ -469,52 +470,54 @@ Panel {
                                 width: parent.width
                             }
 
-                            RowLayout {
+                            Column {
                                 width: parent.width
-                                spacing: Style.space(8)
+                                spacing: Style.space(4)
                                 visible: !isLiveDevice
 
-                                Column {
-                                    Layout.fillWidth: true
-                                    spacing: Style.space(2)
+                                Text {
+                                    text: !isLiveDevice && modelData.record
+                                        ? (modelData.record.model || modelData.record.lastKnownEndpoint)
+                                        : ""
+                                    color: Color.foreground
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.body
+                                    textFormat: Text.PlainText
+                                    elide: Text.ElideRight
+                                    width: parent.width
+                                }
 
-                                    Text {
-                                        text: !isLiveDevice && modelData.record
-                                            ? (modelData.record.model || modelData.record.lastKnownEndpoint)
-                                            : ""
-                                        color: Color.foreground
-                                        font.family: Style.font.family
-                                        font.pixelSize: Style.font.body
-                                        textFormat: Text.PlainText
-                                        elide: Text.ElideRight
+                                Text {
+                                    text: "Wireless \u00b7 Unavailable"
+                                    color: Color.foreground
+                                    font.family: Style.font.family
+                                    font.pixelSize: Style.font.bodySmall
+                                    textFormat: Text.PlainText
+                                    wrapMode: Text.WordWrap
+                                    width: parent.width
+                                }
+
+                                RowLayout {
+                                    width: parent.width
+                                    spacing: Style.space(8)
+
+                                    Item {
                                         Layout.fillWidth: true
                                     }
 
-                                    Text {
-                                        text: "Wireless \u00b7 Unavailable"
-                                        color: Color.foreground
-                                        font.family: Style.font.family
-                                        font.pixelSize: Style.font.bodySmall
-                                        textFormat: Text.PlainText
-                                        wrapMode: Text.WordWrap
-                                        width: parent.width
+                                    Button {
+                                        text: "Reconnect"
+                                        enabled: !wirelessManager.busy
+                                        property var actionFn: function() { root._reconnectRecord(modelData.record) }
+                                        onClicked: actionFn()
                                     }
-                                }
 
-                                Button {
-                                    text: "Reconnect"
-                                    enabled: !wirelessManager.busy
-                                    property var actionFn: function() { root._reconnectRecord(modelData.record) }
-                                    onClicked: actionFn()
-                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
-                                }
-
-                                Button {
-                                    text: "Update"
-                                    enabled: !wirelessManager.busy
-                                    property var actionFn: function() { root._startUpdate(modelData.record) }
-                                    onClicked: actionFn()
-                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                    Button {
+                                        text: "Update"
+                                        enabled: !wirelessManager.busy
+                                        property var actionFn: function() { root._startUpdate(modelData.record) }
+                                        onClicked: actionFn()
+                                    }
                                 }
                             }
 

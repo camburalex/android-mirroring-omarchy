@@ -27,6 +27,17 @@ Scope {
     property string _stdoutText: ""
     property string _stderrText: ""
 
+    // Run-coordination state. A discovery result is only finalized once the
+    // relevant process has exited and the complete stdout for that run is
+    // available, regardless of signal ordering.
+    property bool _runStdoutComplete: false
+    property bool _runStderrComplete: false
+    property bool _runProcessComplete: false
+    property bool _runFinalized: false
+    property int _runExitCode: 0
+
+    signal refreshCompleted(bool success)
+
     onWirelessEndpointChanged: root._reparseIfNeeded()
     onKnownWirelessSerialsChanged: root._reparseIfNeeded()
 
@@ -45,6 +56,9 @@ Scope {
     }
 
     function _reparseIfNeeded() {
+        // Do not reparse while a discovery run is in flight; the in-flight
+        // refresh will use the current context when it finalizes.
+        if (root.busy) return
         if (!root._stdoutText) return
         root.devices = AdbParser.parseDevices(root._stdoutText, root._buildWirelessContext())
     }
@@ -54,9 +68,15 @@ Scope {
 
         root.busy = true
         root.error = ""
-        root.devices = []
+        // Preserve the previous device list during the query; the UI uses
+        // `busy` to show the loading state. The list is atomically replaced
+        // when the current run finalizes.
         root._stdoutText = ""
         root._stderrText = ""
+        root._runStdoutComplete = false
+        root._runStderrComplete = false
+        root._runProcessComplete = false
+        root._runFinalized = false
 
         // A normal tracked Process is used with `running = true`; busy gating
         // above prevents overlapping discovery runs rather than interrupting
@@ -69,6 +89,27 @@ Scope {
         return AdbParser.stateText(device.rawState, device.connection)
     }
 
+    function _attemptFinalize() {
+        if (root._runFinalized) return
+        if (!root._runProcessComplete || !root._runStdoutComplete) return
+
+        root._runFinalized = true
+        root.busy = false
+
+        if (root._runExitCode !== 0) {
+            var err = String(root._stderrText || "").trim()
+            if (err) console.warn("adb devices -l failed:", root._runExitCode, err)
+            root.error = "ADB discovery failed."
+            root.devices = []
+            root.refreshCompleted(false)
+            return
+        }
+
+        var out = String(root._stdoutText || "")
+        root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
+        root.refreshCompleted(true)
+    }
+
     Process {
         id: adbProc
 
@@ -77,28 +118,40 @@ Scope {
         stdout: StdioCollector {
             id: adbStdout
             waitForEnd: true
-            onStreamFinished: root._stdoutText = String(text || "")
+            onStreamFinished: {
+                root._stdoutText = String(text || "")
+                root._runStdoutComplete = true
+                root._attemptFinalize()
+            }
         }
 
         stderr: StdioCollector {
             id: adbStderr
             waitForEnd: true
-            onStreamFinished: root._stderrText = String(text || "")
+            onStreamFinished: {
+                root._stderrText = String(text || "")
+                root._runStderrComplete = true
+                root._attemptFinalize()
+            }
         }
 
         onExited: function(exitCode, exitStatus) {
-            root.busy = false
+            root._runExitCode = exitCode
+            root._runProcessComplete = true
+            root._attemptFinalize()
+        }
 
-            if (exitCode !== 0) {
-                var err = String(root._stderrText || adbStderr.text || "").trim()
-                console.warn("adb devices -l failed:", exitCode, exitStatus, err)
+        onRunningChanged: {
+            // If the process stopped without the normal exited/stdout path
+            // finalizing the run (e.g. FailedToStart), make sure busy is not
+            // left stuck and report a failure.
+            if (!running && !root._runFinalized && !root._runProcessComplete) {
+                root._runFinalized = true
+                root.busy = false
                 root.error = "ADB discovery failed."
                 root.devices = []
-                return
+                root.refreshCompleted(false)
             }
-
-            var out = String(root._stdoutText || adbStdout.text || "")
-            root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
         }
     }
 }

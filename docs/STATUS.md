@@ -61,6 +61,16 @@
 - M3-T2B hardens saved wireless classification, stale update-intent handling,
   and FileView persistence error semantics. Final saved/reconnect hardware
   validation remains required.
+- M3-T2C addresses the final M3 F1 hardware-validation failure:
+  `adb devices -l` showed the wireless phone live, but the plugin continued to
+  show the saved record as `Wireless · Unavailable` even after explicit Refresh.
+  The fix makes ADB discovery completion deterministic by coordinating the
+  process-exit and stdout-stream-completion signals, introduces an explicit
+  `refreshCompleted` signal so `devicesChanged` is no longer treated as a
+  completed discovery cycle, preserves the previous device list while a refresh
+  is in flight, and fixes the saved-device-row action overlap by placing
+  `Reconnect` and `Update` in a bounded second row. M3 remains OPEN pending
+  corrected hardware validation.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)
