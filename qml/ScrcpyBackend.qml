@@ -212,6 +212,10 @@ Scope {
         id: scrcpyProc
         running: false
         command: []
+        environment: ({
+            SDL_VIDEODRIVER: "x11"
+        })
+        clearEnvironment: false
 
         // Drain stdout so the scrcpy pipe cannot block on startup messages.
         stdout: SplitParser { onRead: function(line) {} }

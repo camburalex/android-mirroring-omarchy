@@ -35,6 +35,16 @@ upstream scrcpy as the mirroring engine. The plugin runs inside the existing
 - Repository searches and diagnostics stay inside the repository and
   task-authorized paths; do not recursively scan the user's home directory,
   unrelated config/state directories, or collect unrelated credentials/data.
+- Read-only research may search under these roots when materially useful for
+  accurate development: `~/.local`, `~/.config/hypr`, `/usr/share/omarchy`,
+  and `/usr/lib`. This applies to grep/find, IDE search, source inspection,
+  and installed API/qmltypes inspection.
+- Still prohibited: destructive modification of unrelated files, writing
+  package-owned `/usr/share/omarchy` files, harvesting unrelated
+  credentials/secrets, collecting unrelated personal/application content without
+  an engineering need, recursive destructive operations, and broad writes outside
+  the repository or plugin deployment paths without explicit approval.
+  Repository/source accuracy remains the sole purpose of these searches.
 
 ## Git / commit policy
 - Devin may create task branches, edit/test/deploy, and inspect diffs.

@@ -19,6 +19,10 @@ var PRESETS = {
 
 var DEFAULT_PRESET = "balanced";
 
+// Fixed, application-controlled window identity for Hyprland matching.
+// Must contain no device/user input and must remain one argv element.
+var WINDOW_TITLE = "Android Mirroring";
+
 // Same framing rule as INVALID_SERIAL, but spaces are allowed because a
 // recording path may legitimately contain them and will always be one argv
 // element, never a shell string.
@@ -70,6 +74,7 @@ function buildCommand(serial, options, recordingPath) {
     }
 
     var argv = ["scrcpy", "-s", serial];
+    argv.push("--window-title=" + WINDOW_TITLE);
     argv.push("--max-size=" + preset.maxSize);
     argv.push("--video-bit-rate=" + preset.videoBitRate);
     argv.push("--max-fps=" + preset.maxFps);
@@ -97,6 +102,7 @@ if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
         buildCommand: buildCommand,
         normalizeOptions: normalizeOptions,
         PRESETS: PRESETS,
-        DEFAULT_PRESET: DEFAULT_PRESET
+        DEFAULT_PRESET: DEFAULT_PRESET,
+        WINDOW_TITLE: WINDOW_TITLE
     };
 }

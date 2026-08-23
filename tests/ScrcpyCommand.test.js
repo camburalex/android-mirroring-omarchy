@@ -13,6 +13,7 @@ function expectedArgvFor(serial, options, recordingPath) {
         "scrcpy",
         "-s",
         serial,
+        "--window-title=" + command.WINDOW_TITLE,
         "--max-size=" + p.maxSize,
         "--video-bit-rate=" + p.videoBitRate,
         "--max-fps=" + p.maxFps
@@ -59,6 +60,12 @@ function assertOneRecord(argv, expectedPath) {
     assert.strictEqual(recordArgs[0], "--record=" + expectedPath, "record path is exact");
 }
 
+function assertOneWindowTitle(argv) {
+    const titleArgs = argv.filter((a) => a.indexOf("--window-title=") === 0);
+    assert.strictEqual(titleArgs.length, 1, "exactly one --window-title= argument");
+    assert.strictEqual(titleArgs[0], "--window-title=" + command.WINDOW_TITLE, "window title is the fixed product title");
+}
+
 function run() {
     // A. Normal USB serial with default options (Balanced, audio on, screen off off, recording off).
     const normal = command.buildCommand(TEST_SERIAL);
@@ -72,7 +79,7 @@ function run() {
 
     // B. Network-form serial.
     const network = command.buildCommand(TEST_NETWORK_SERIAL);
-    assert.strictEqual(network.argv.length, 6, "B: argv length");
+    assert.strictEqual(network.argv.length, 7, "B: argv length");
     assert.strictEqual(network.argv[2], TEST_NETWORK_SERIAL, "B: serial is one argv element");
     assertNoShell(network.argv);
 
@@ -83,7 +90,7 @@ function run() {
         audioEnabled: false,
         screenOff: true
     });
-    assert.strictEqual(shell.argv.length, 8, "C: argv length");
+    assert.strictEqual(shell.argv.length, 9, "C: argv length");
     assert.strictEqual(shell.argv[2], nasty, "C: serial remains one element");
     assert.strictEqual(shell.program, "scrcpy", "C: program stays scrcpy");
     assertNoShell(shell.argv);
@@ -91,6 +98,19 @@ function run() {
         shell.argv,
         expectedArgvFor(nasty, { preset: "performance", audioEnabled: false, screenOff: true }),
         "C: performance + audio off + screen off on"
+    );
+
+    // C2. Window identity is a fixed, separate argv element; no shell metacharacter
+    // from the serial leaks into the title and the title is never concatenated.
+    assertOneWindowTitle(shell.argv);
+    assert.strictEqual(
+        shell.argv.indexOf("--window-title=" + command.WINDOW_TITLE),
+        3,
+        "C2: window title is the fourth element, right after serial"
+    );
+    assert.ok(
+        !shell.argv.some((a) => a.indexOf(nasty) >= 0 && a !== nasty),
+        "C2: shell-looking serial does not appear in any other argv element"
     );
 
     // D. Empty serial is rejected.

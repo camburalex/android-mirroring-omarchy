@@ -1,6 +1,10 @@
 # Status
 
-- Milestone: M3 (PASS)
+- M1: PASS
+- M2: PASS
+- M3: PASS
+- M4: PASS
+- M5: ACTIVE
 - M0-T1 bootstrap completed.
 - M1-T1 native plugin-shell bring-up completed (manifest, plugin loading, shell
   IPC show/hide passed).
@@ -60,7 +64,7 @@
 - M3-T2 implements saved wireless device metadata and reconnect-after-restart.
 - M3-T2B hardens saved wireless classification, stale update-intent handling,
   and FileView persistence error semantics. Final saved/reconnect hardware
-  validation remains required.
+  validation passed.
 - M3-T2C addresses the final M3 F1 hardware-validation failure:
   `adb devices -l` showed the wireless phone live, but the plugin continued to
   show the saved record as `Wireless · Unavailable` even after explicit Refresh.
@@ -69,8 +73,8 @@
   `refreshCompleted` signal so `devicesChanged` is no longer treated as a
   completed discovery cycle, preserves the previous device list while a refresh
   is in flight, and fixes the saved-device-row action overlap by placing
-  `Reconnect` and `Update` in a bounded second row. M3 remains OPEN pending
-  corrected hardware validation.
+  `Reconnect` and `Update` in a bounded second row. M3 final hardware
+  validation passed.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)
@@ -82,9 +86,9 @@
 - M3-T1 cold-start and panel-load validation passed after
   `omarchy restart shell` (no QML load errors for `BarWidget.qml`,
   `DeviceManager.qml`, `WirelessManager.qml`, or `WirelessCommand.js`).
-- M3-T1 wireless pair/connect/mirroring: REQUIRES USER HARDWARE VALIDATION.
+- M3-T1 wireless pair/connect/mirroring: PASS.
 - M3 final hardware validation passed.
-- M4 is now active, branched from `d6c1a61`.
+- M4 is PASS.
 - M4-T1 implements Performance/Balanced/Quality presets, Audio On/Off, and
   Screen off On/Off in the production `ScrcpyCommand.js` builder and the
   `BarWidget.qml` panel. Balanced is the default preset.
@@ -103,4 +107,49 @@
   by a persistent `RecordingManager` using shell-free direct argv, and the full
   24-state command matrix (3 presets × 2 audio × 2 screen-off × 2 recording) is
   covered by `tests/ScrcpyCommand.test.js`.
-- M4 remains OPEN pending the human recording hardware validation pass.
+- M4 recording hardware validation: PASS (all three presets, Audio On/Off, Screen
+  off On/Off, safe recording, USB/wireless regression).
+- M5 is ACTIVE (branched from `a1101ee`).
+- M5-T1 adds a stable, application-controlled scrcpy window identity
+  (`--window-title=Android Mirroring`) and a Quattro-native Hyprland Lua rule
+  (`hyprland.lua`) that floats, centers, and applies a 1px border while
+  inheriting the active/inactive border colors and rounding from the current
+  Omarchy theme.
+- M5-T1 does not add keybindings, geometry persistence, always-on-top, or
+  custom theme parsing.
+- M5-T1 human hardware validation (native Wayland):
+  - H1 floating/center/border/input: PASS
+  - H2 manual move/resize: PASS
+  - H3 rotate during session under native Wayland: FAIL (outer Hyprland window
+    stayed portrait-shaped while Android content rotated)
+  - H4 focus/themed border behavior: PASS
+  - H5 theme switching: PASS
+  - H6 stop/relaunch: PASS
+- M5-T1B forces only the plugin-owned scrcpy rendering process through the SDL
+  X11 backend so it runs under XWayland (`SDL_VIDEODRIVER=x11` on the
+  `ScrcpyBackend.qml` Process, inherited environment kept, `clearEnvironment: false`).
+  XWayland is intentionally used for plugin-owned scrcpy because current target
+  hardware testing proved native Wayland failed outer-window resize on device
+  rotation while XWayland passed.
+- XWayland manual compatibility test: PASS. A manually launched
+  `SDL_VIDEODRIVER=x11 scrcpy --window-title="Android Mirroring"` window
+  reported `xwayland: 1` and the outer Hyprland floating window immediately
+  resized for both portrait-to-landscape and landscape-to-portrait.
+- M5-T1 / M5-T1B final plugin-owned hardware validation:
+  - plugin scrcpy window: xwayland: 1, floating: 1
+  - portrait-to-landscape outer-window resize: PASS
+  - landscape-to-portrait outer-window resize: PASS
+  - input: PASS
+  - plugin Stop: PASS
+  - combined M4 regression: audio PASS, screen-off PASS, recording PASS,
+    rotation while recording PASS
+  - recording isolation (Audio On + Screen Off Off): PASS
+  - recording isolation (Audio On + Screen Off On): PASS
+- M5-T1 native Hyprland phone-window integration: PASS.
+- M5-T2 remains active. Pending M5-T2 polish includes:
+  - dismiss/control-panel behavior after successful mirror launch
+  - keyboard/focus UX
+  - numeric keypad issue in Update Address / numeric-entry UI (numeric keypad
+    input may fail in the Update Address/port field even when the Num Lock LED
+    is on; physically toggling Num Lock off/on restores numeric keypad entry)
+  - responsive/error-state polish as applicable
