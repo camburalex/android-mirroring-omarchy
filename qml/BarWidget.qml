@@ -88,11 +88,11 @@ Panel {
         }
     }
 
-    WidgetButton {
+    BarIconButton {
         id: button
         anchors.fill: parent
         bar: root.bar
-        text: "\u2026"
+        text: "\uf10b"
 
         onPressed: function(b) {
             if (b !== Qt.LeftButton) return
