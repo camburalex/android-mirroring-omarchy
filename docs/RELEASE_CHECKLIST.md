@@ -64,3 +64,17 @@ Items marked `[ ]` are intentionally unchecked until final release validation.
   - Quickshell 0.3.0
   - scrcpy 4.1
   - android-tools 37.0.0 / adb 1.0.41
+
+## M6-T2 — security/process/resource audit
+
+- [x] Source-level security audit complete.
+- [x] No shell-string construction or user-controlled shell interpolation.
+- [x] Pairing code stays stdin-only, never persisted or normally logged.
+- [x] `Stop` only terminates the tracked plugin-owned scrcpy process.
+- [x] Recording path cannot escape `Videos/Android Mirroring` root.
+- [x] Reserved recording placeholder is discarded when scrcpy fails to start.
+- [x] Saved-device state uses atomic writes and an allow-listed schema.
+- [x] All automated tests pass; `omarchy plugin validate .` passes.
+- [ ] Physical resource cleanup (phone unplug, Wi-Fi loss, shell restart during
+  active session, scrcpy crash) — requires M6-T3 hardware validation.
+- [ ] Clean install / uninstall / final release matrix — requires M6-T3.

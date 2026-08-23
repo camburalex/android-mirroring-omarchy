@@ -25,6 +25,7 @@ Scope {
     property string _diagBuffer: ""
     property bool _stopIntended: false
     property var _sessionOptions: null
+    property bool _exitedHandled: false
 
     signal sessionStarted()
     signal sessionEnded(bool expected, int exitCode)
@@ -59,6 +60,7 @@ Scope {
         root._stopIntended = false;
         root.activeSerial = serial;
         root._sessionOptions = sessionOptions;
+        root._exitedHandled = false;
         root.starting = true;
         root.stopping = false;
 
@@ -174,6 +176,9 @@ Scope {
     }
 
     function _onExited(exitCode, exitStatus) {
+        if (root._exitedHandled) return;
+        root._exitedHandled = true;
+
         var wasStarting = root.starting;
         var wasRunning = root.running;
         var wasStopping = root.stopping;
@@ -227,5 +232,16 @@ Scope {
 
         onStarted: root._onStarted()
         onExited: function(exitCode, exitStatus) { root._onExited(exitCode, exitStatus) }
+
+        // Quickshell does not emit onExited when the binary cannot be started
+        // (FailedToStart). The runningChanged fallback ensures a stuck starting
+        // or running session is still reset and any reserved recording is
+        // discarded.
+        onRunningChanged: {
+            if (!scrcpyProc.running && !root._exitedHandled
+                && (root.starting || root.running || root.stopping)) {
+                root._onExited(1, 1);
+            }
+        }
     }
 }

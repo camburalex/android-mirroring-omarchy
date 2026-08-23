@@ -146,6 +146,17 @@ Scope {
             connectProc.command = connect2Cmd.argv;
             connectProc.running = true;
         }
+
+        // Quickshell does not emit onExited when the binary cannot be started
+        // (FailedToStart). This fallback clears the in-memory pairing code and
+        // returns the UI to an error state.
+        onRunningChanged: {
+            if (!pairProc.running && root.state === "pairing") {
+                root._pairingCode = "";
+                root.state = "error";
+                root.errorMessage = "Pairing failed. Verify the address, port, and pairing code.";
+            }
+        }
     }
 
     Process {
@@ -179,6 +190,15 @@ Scope {
             root._lastConnectionEndpoint = root._connectionEndpoint;
             root.state = "connected";
             root.connected(root._connectionEndpoint);
+        }
+
+        // Quickshell does not emit onExited when the binary cannot be started
+        // (FailedToStart). This fallback returns the UI to an error state.
+        onRunningChanged: {
+            if (!connectProc.running && root.state === "connecting") {
+                root.state = "error";
+                root.errorMessage = "Could not reach this device. Make sure the phone and computer are on the same network and Wireless Debugging is enabled.";
+            }
         }
     }
 }

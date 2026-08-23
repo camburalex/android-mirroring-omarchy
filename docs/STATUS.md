@@ -174,5 +174,19 @@
 - M6-T1 release packaging and documentation is statically complete on this
   branch. The public README, LICENSE, manifest release metadata, release
   checklist, and install/remove/Hyprland documentation have been prepared.
-- Final M6 security, resource-cleanup, fresh-install, and hardware release
-  validation gates remain pending.
+- M6-T2 source-level security/process/resource audit complete:
+  - confirmed no shell-string construction, no persisted pairing codes, no
+    global `pkill`/`killall`/`startDetached`, no runtime privilege escalation;
+  - added `_exitedHandled` and `onRunningChanged` safety nets to
+    `qml/ScrcpyBackend.qml` and `qml/WirelessManager.qml` because installed
+    Quickshell source shows `Process::onErrorOccurred(FailedToStart)` does not
+    emit `onExited`, which would otherwise leave a starting session and any
+    reserved recording placeholder stuck;
+  - all automated tests pass (seven suites, including the new
+    `tests/ProcessSafety.test.js` source-audit suite);
+  - `omarchy plugin validate .`, `git diff --check`, and
+    `omarchy-shell shell ping/listPlugins/debugBarGeometry` pass after
+    restart.
+- M6-T3 clean install/uninstall/fresh-install and final hardware release
+  validation gates remain pending (phone unplug, Wi-Fi loss, shell restart
+  during active session, scrcpy crash, fresh install/uninstall).
