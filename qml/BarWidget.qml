@@ -55,6 +55,12 @@ Panel {
     Connections {
         target: wirelessManager
         function onConnected(endpoint) { root._onWirelessConnected(endpoint) }
+        function onStateChanged() {
+            if (wirelessManager.state === "error") {
+                root._pendingWirelessEndpoint = ""
+                root._pendingRecordId = ""
+            }
+        }
     }
 
     Connections {
