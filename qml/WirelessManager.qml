@@ -62,7 +62,8 @@ Scope {
         root.state = "pairing";
         root.errorMessage = "";
 
-        pairProc.command = ["adb", "pair", pairingEndpoint];
+        var pairCmd = WirelessCommand.buildPairCommand(pairingEndpoint);
+        pairProc.command = pairCmd.argv;
         pairProc.running = true;
     }
 
@@ -84,7 +85,8 @@ Scope {
         root.state = "connecting";
         root.errorMessage = "";
 
-        connectProc.command = ["adb", "connect", connectionEndpoint];
+        var connectCmd = WirelessCommand.buildConnectCommand(connectionEndpoint);
+        connectProc.command = connectCmd.argv;
         connectProc.running = true;
     }
 
@@ -140,7 +142,8 @@ Scope {
             root._connectStderr = "";
             root.state = "connecting";
 
-            connectProc.command = ["adb", "connect", root._connectionEndpoint];
+            var connect2Cmd = WirelessCommand.buildConnectCommand(root._connectionEndpoint);
+            connectProc.command = connect2Cmd.argv;
             connectProc.running = true;
         }
     }

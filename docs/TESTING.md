@@ -31,7 +31,8 @@ Any QML integration change must also survive a full cold restart:
 - `omarchy-shell shell debugBarGeometry` shows a visible, non-zero-size slot
 - `omarchy-shell shell toggle dev.android-mirroring '{}'` opens the panel
 - Quickshell journal contains no `BarWidget.qml`, `DeviceManager.qml`,
-  `AdbParser.js`, or `dev.android-mirroring` QML load error
+  `SavedDeviceStore.qml`, `SavedDeviceData.js`, `AdbParser.js`, or
+  `dev.android-mirroring` QML load error
 - Repeat the full `omarchy restart shell` cycle at least once
 
 ## Parser checks
@@ -49,6 +50,13 @@ Any QML integration change must also survive a full cold restart:
 - `node tests/ScrcpyBackendState.test.js` runs the fixture suite against the
   real production `qml/ScrcpyState.js` used by `ScrcpyBackend.qml`.
 
+## Saved device checks
+
+- `node tests/SavedDeviceData.test.js` runs the fixture suite for empty state,
+  valid records, unknown/pairing-code field stripping, malformed JSON and wrong
+  schema handling, endpoint updates, and allow-list serialization against the
+  real production `qml/SavedDeviceData.js`.
+
 ## Wireless pairing checks
 
 - `node tests/WirelessCommand.test.js` runs the fixture suite for endpoint
@@ -64,9 +72,29 @@ Any QML integration change must also survive a full cold restart:
 - `Mirror` and `Stop` still own and terminate exactly the plugin's scrcpy
   process.
 
-## Android hardware checks (M2)
+## Android hardware checks
+
+### M2
 
 - ADB device detection over USB: validated
 - scrcpy USB launch, mirror, unplug, reconnect, and relaunch: validated
-- Android 11+ wireless pairing: not yet implemented (M3)
+
+### M3-T1
+
+- W1 pairing UI / masked code: PASS
+- W2 incorrect pairing code: PASS
+- W3 incorrect pairing port: PASS
+- W4 correct pair + connect: PASS
+- W5 wireless scrcpy with USB physically disconnected: PASS
+- W6 wireless close / relaunch: PASS
+- W7 Wireless Debugging disabled / device disappears: PASS
+
+### M3-T2
+
+- Saved-device metadata persistence: awaiting hardware validation
+- Reconnect without pairing code: awaiting hardware validation
+- Stale endpoint update without re-pairing: awaiting hardware validation
+
+### Future work
+
 - Recording and quality presets: not yet implemented (M4/M5)

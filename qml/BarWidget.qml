@@ -3,12 +3,21 @@ import QtQuick.Layouts
 import QtQuick.Window
 import qs.Commons
 import qs.Ui
+import "WirelessCommand.js" as WirelessCommand
 
 Panel {
     id: root
 
     implicitWidth: button.implicitWidth
     implicitHeight: button.implicitHeight
+
+    property var displayItems: []
+    property string _formError: ""
+    property string _wirelessMode: "menu" // menu, pair-step1, pair-step2, already, update
+    property string _step1Endpoint: ""
+    property string _pendingWirelessEndpoint: ""
+    property string _pendingRecordId: ""
+    property var _updateRecord: null
 
     DeviceManager {
         id: deviceManager
@@ -20,6 +29,10 @@ Panel {
 
     WirelessManager {
         id: wirelessManager
+    }
+
+    SavedDeviceStore {
+        id: savedStore
     }
 
     Connections {
@@ -41,10 +54,17 @@ Panel {
 
     Connections {
         target: wirelessManager
-        function onConnected(endpoint) {
-            deviceManager.wirelessEndpoint = endpoint
-            deviceManager.refresh()
-        }
+        function onConnected(endpoint) { root._onWirelessConnected(endpoint) }
+    }
+
+    Connections {
+        target: deviceManager
+        function onDevicesChanged() { root._onDevicesRefreshed() }
+    }
+
+    Connections {
+        target: savedStore
+        function onDevicesChanged() { root._rebuildDisplayItems() }
     }
 
     WidgetButton {
@@ -59,6 +79,65 @@ Panel {
         }
     }
 
+    function _setWirelessMode(mode) {
+        root._wirelessMode = mode
+        root._formError = ""
+        wirelessManager.clearError()
+    }
+
+    function _onWirelessConnected(endpoint) {
+        root._pendingWirelessEndpoint = endpoint
+        deviceManager.wirelessEndpoint = endpoint
+        deviceManager.refresh()
+    }
+
+    function _onDevicesRefreshed() {
+        root._rebuildDisplayItems()
+
+        if (root._pendingWirelessEndpoint === "") return
+
+        var live = null
+        var devices = deviceManager.devices || []
+        for (var i = 0; i < devices.length; i++) {
+            if (devices[i].serial === root._pendingWirelessEndpoint
+                && devices[i].connection === "wireless"
+                && devices[i].rawState === "device") {
+                live = devices[i]
+                break
+            }
+        }
+
+        savedStore.addOrUpdate(root._pendingWirelessEndpoint, live, root._pendingRecordId)
+        root._pendingWirelessEndpoint = ""
+        root._pendingRecordId = ""
+
+        if (wirelessManager.errorMessage === "") root._setWirelessMode("menu")
+    }
+
+    function _rebuildDisplayItems() {
+        var live = deviceManager.devices || []
+        var saved = savedStore.devices || []
+        var result = []
+
+        for (var i = 0; i < live.length; i++) {
+            result.push({ kind: "live", device: live[i] })
+        }
+
+        for (var j = 0; j < saved.length; j++) {
+            var record = saved[j]
+            var isLive = false
+            for (var k = 0; k < live.length; k++) {
+                if (live[k].serial === record.lastKnownEndpoint) {
+                    isLive = true
+                    break
+                }
+            }
+            if (!isLive) result.push({ kind: "saved", record: record })
+        }
+
+        root.displayItems = result
+    }
+
     function _moveFocus(direction) {
         var current = Window.activeFocusItem
         if (!current || !current.nextItemInFocusChain) return
@@ -69,6 +148,65 @@ Panel {
     function _activateFocusedItem() {
         var current = Window.activeFocusItem
         if (current && typeof current.actionFn === "function") current.actionFn()
+    }
+
+    function _startPairStep2() {
+        var check = WirelessCommand.validateEndpoint(step1ConnAddrField.text)
+        if (!check.ok) {
+            root._formError = "Connection address is invalid. " + check.reason
+            return
+        }
+        root._formError = ""
+        root._step1Endpoint = step1ConnAddrField.text
+        root._setWirelessMode("pair-step2")
+        pairingAddrField.text = ""
+        pairingCodeField.text = ""
+    }
+
+    function _pairAndConnect() {
+        if (wirelessManager.busy) return
+        scrcpyBackend.clearError()
+        wirelessManager.clearError()
+        root._formError = ""
+        wirelessManager.pairAndConnect(
+            pairingAddrField.text,
+            root._step1Endpoint,
+            pairingCodeField.text
+        )
+        pairingCodeField.text = ""
+    }
+
+    function _connectFromField() {
+        if (wirelessManager.busy) return
+
+        var endpoint = connectAddrField.text
+        var check = WirelessCommand.validateEndpoint(endpoint)
+        if (!check.ok) {
+            root._formError = "Connection address is invalid. " + check.reason
+            return
+        }
+
+        root._formError = ""
+        scrcpyBackend.clearError()
+        wirelessManager.clearError()
+
+        if (root._updateRecord) root._pendingRecordId = root._updateRecord.id
+        wirelessManager.connect(endpoint)
+    }
+
+    function _reconnectRecord(record) {
+        if (wirelessManager.busy) return
+        scrcpyBackend.clearError()
+        wirelessManager.clearError()
+        root._formError = ""
+        root._pendingRecordId = record.id
+        wirelessManager.connect(record.lastKnownEndpoint)
+    }
+
+    function _startUpdate(record) {
+        root._updateRecord = record
+        connectAddrField.text = record.lastKnownEndpoint
+        root._setWirelessMode("update")
     }
 
     KeyboardPanel {
@@ -85,7 +223,10 @@ Panel {
         PanelKeyCatcher {
             id: keyCatcher
             anchors.fill: parent
-            blocked: pairingAddrField.activeFocus || pairingCodeField.activeFocus || connAddrField.activeFocus
+            blocked: step1ConnAddrField.activeFocus
+                || pairingAddrField.activeFocus
+                || pairingCodeField.activeFocus
+                || connectAddrField.activeFocus
             onCloseRequested: root.close()
             onTabRequested: function(direction) { root._moveFocus(direction) }
             onActivateRequested: root._activateFocusedItem()
@@ -187,7 +328,29 @@ Panel {
                 }
 
                 Text {
-                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && deviceManager.devices.length === 0
+                    visible: savedStore.error !== "" && !savedStore.loaded
+                    text: savedStore.error
+                    color: Color.urgent
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                    width: parent.width
+                }
+
+                Text {
+                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && root._formError !== ""
+                    text: root._formError
+                    color: Color.urgent
+                    font.family: Style.font.family
+                    font.pixelSize: Style.font.body
+                    textFormat: Text.PlainText
+                    wrapMode: Text.WordWrap
+                    width: parent.width
+                }
+
+                Text {
+                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && root._formError === "" && displayItems.length === 0
                     text: "No Android devices detected."
                     color: Color.foreground
                     font.family: Style.font.family
@@ -201,25 +364,28 @@ Panel {
                     id: deviceList
                     width: parent.width
                     spacing: Style.space(10)
-                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && deviceManager.devices.length > 0
+                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && displayItems.length > 0
 
                     Repeater {
-                        model: deviceManager.devices
+                        model: root.displayItems
 
                         delegate: Column {
                             width: parent.width
                             spacing: Style.space(2)
 
-                            property bool isActive: scrcpyBackend.activeSerial === modelData.serial
+                            property bool isLiveDevice: modelData.kind === "live"
+                            property bool isActive: isLiveDevice
+                                && scrcpyBackend.activeSerial === modelData.device.serial
                                 && (scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping)
 
                             RowLayout {
                                 width: parent.width
                                 spacing: Style.space(8)
+                                visible: isLiveDevice
 
                                 Text {
-                                    id: deviceLabel
-                                    text: modelData.label
+                                    id: liveDeviceLabel
+                                    text: isLiveDevice ? modelData.device.label : ""
                                     color: isActive ? Color.accent : Color.foreground
                                     font.family: Style.font.family
                                     font.pixelSize: Style.font.body
@@ -230,20 +396,21 @@ Panel {
                                 }
 
                                 Button {
-                                    id: rowActionBtn
-                                    visible: !isActive
-                                        && modelData.rawState === "device"
+                                    id: liveMirrorBtn
+                                    visible: isLiveDevice
+                                        && modelData.device.rawState === "device"
+                                        && !isActive
                                         && !scrcpyBackend.running
                                         && !scrcpyBackend.starting
                                         && !scrcpyBackend.stopping
                                     text: "Mirror"
-                                    property var actionFn: function() { scrcpyBackend.startMirroring(modelData.serial) }
+                                    property var actionFn: function() { scrcpyBackend.startMirroring(modelData.device.serial) }
                                     onClicked: actionFn()
                                     Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                                 }
 
                                 Text {
-                                    visible: isActive
+                                    visible: isLiveDevice && isActive
                                     text: "Active"
                                     color: Color.accent
                                     font.family: Style.font.family
@@ -254,9 +421,69 @@ Panel {
                             }
 
                             Text {
-                                visible: !isActive
-                                text: deviceManager.stateText(modelData)
+                                visible: isLiveDevice && !isActive
+                                text: isLiveDevice ? deviceManager.stateText(modelData.device) : ""
                                 color: Color.foreground
+                                font.family: Style.font.family
+                                font.pixelSize: Style.font.body
+                                textFormat: Text.PlainText
+                                wrapMode: Text.WordWrap
+                                width: parent.width
+                            }
+
+                            RowLayout {
+                                width: parent.width
+                                spacing: Style.space(8)
+                                visible: !isLiveDevice
+
+                                Column {
+                                    Layout.fillWidth: true
+                                    spacing: Style.space(2)
+
+                                    Text {
+                                        text: !isLiveDevice && modelData.record
+                                            ? (modelData.record.model || modelData.record.lastKnownEndpoint)
+                                            : ""
+                                        color: Color.foreground
+                                        font.family: Style.font.family
+                                        font.pixelSize: Style.font.body
+                                        textFormat: Text.PlainText
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                    }
+
+                                    Text {
+                                        text: "Wireless \u00b7 Unavailable"
+                                        color: Color.foreground
+                                        font.family: Style.font.family
+                                        font.pixelSize: Style.font.bodySmall
+                                        textFormat: Text.PlainText
+                                        wrapMode: Text.WordWrap
+                                        width: parent.width
+                                    }
+                                }
+
+                                Button {
+                                    text: "Reconnect"
+                                    enabled: !wirelessManager.busy
+                                    property var actionFn: function() { root._reconnectRecord(modelData.record) }
+                                    onClicked: actionFn()
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                }
+
+                                Button {
+                                    text: "Update"
+                                    enabled: !wirelessManager.busy
+                                    property var actionFn: function() { root._startUpdate(modelData.record) }
+                                    onClicked: actionFn()
+                                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                }
+                            }
+
+                            Text {
+                                visible: !isLiveDevice && wirelessManager.errorMessage !== "" && wirelessManager.state === "error"
+                                text: wirelessManager.errorMessage
+                                color: Color.urgent
                                 font.family: Style.font.family
                                 font.pixelSize: Style.font.body
                                 textFormat: Text.PlainText
@@ -272,8 +499,55 @@ Panel {
                     width: parent.width
                     spacing: Style.space(10)
 
+                    // ---- menu ------------------------------------------------
+
                     Text {
-                        text: "Pair wirelessly"
+                        visible: root._wirelessMode === "menu"
+                        text: "Wireless"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "menu"
+                        text: "Pair a new phone over Wi-Fi, or connect a phone that is already paired."
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Button {
+                        visible: root._wirelessMode === "menu"
+                        text: "Pair a new phone"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() {
+                            step1ConnAddrField.text = ""
+                            root._setWirelessMode("pair-step1")
+                        }
+                        onClicked: actionFn()
+                    }
+
+                    Button {
+                        visible: root._wirelessMode === "menu"
+                        text: "Already paired? Connect"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() {
+                            connectAddrField.text = ""
+                            root._setWirelessMode("already")
+                        }
+                        onClicked: actionFn()
+                    }
+
+                    // ---- pair step 1 ----------------------------------------
+
+                    Text {
+                        visible: root._wirelessMode === "pair-step1"
+                        text: "Pair a new phone"
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body
@@ -283,9 +557,10 @@ Panel {
                     Column {
                         width: parent.width
                         spacing: Style.space(2)
+                        visible: root._wirelessMode === "pair-step1"
 
                         Text {
-                            text: "Pairing address"
+                            text: "Wireless IP & port"
                             color: Color.foreground
                             font.family: Style.font.family
                             font.pixelSize: Style.font.body
@@ -293,7 +568,80 @@ Panel {
                         }
 
                         Text {
-                            text: "From ‘Pair device with pairing code’"
+                            text: "On your phone, open Wireless debugging and enter the IP address & port shown on the main screen."
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.bodySmall
+                            textFormat: Text.PlainText
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        TextField {
+                            id: step1ConnAddrField
+                            width: parent.width
+                            placeholderText: "192.168.1.20:5555"
+                            onAccepted: nextToPairBtn.actionFn()
+                        }
+                    }
+
+                    Button {
+                        id: nextToPairBtn
+                        visible: root._wirelessMode === "pair-step1"
+                        text: "Next: Pair device"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() { root._startPairStep2() }
+                        onClicked: actionFn()
+                    }
+
+                    // ---- pair step 2 ----------------------------------------
+
+                    Text {
+                        visible: root._wirelessMode === "pair-step2"
+                        text: "Pair device"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "pair-step2"
+                        text: "On your phone, tap \"Pair device with pairing code\". Keep that popup open until pairing finishes."
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "pair-step2" && root._step1Endpoint !== ""
+                        text: "Connection address: " + root._step1Endpoint
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Column {
+                        width: parent.width
+                        spacing: Style.space(2)
+                        visible: root._wirelessMode === "pair-step2"
+
+                        Text {
+                            text: "Pairing IP & port"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                        }
+
+                        Text {
+                            text: "Enter the IP address & port shown inside the pairing-code popup."
                             color: Color.foreground
                             font.family: Style.font.family
                             font.pixelSize: Style.font.bodySmall
@@ -306,12 +654,14 @@ Panel {
                             id: pairingAddrField
                             width: parent.width
                             placeholderText: "192.168.1.20:37123"
+                            onAccepted: pairBtn.actionFn()
                         }
                     }
 
                     Column {
                         width: parent.width
                         spacing: Style.space(2)
+                        visible: root._wirelessMode === "pair-step2"
 
                         Text {
                             text: "Pairing code"
@@ -322,7 +672,7 @@ Panel {
                         }
 
                         Text {
-                            text: "Temporary six-digit code"
+                            text: "Enter the 6-digit code from the same popup."
                             color: Color.foreground
                             font.family: Style.font.family
                             font.pixelSize: Style.font.bodySmall
@@ -342,12 +692,33 @@ Panel {
                         }
                     }
 
+                    Button {
+                        id: pairBtn
+                        visible: root._wirelessMode === "pair-step2"
+                        text: "Pair & Connect"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() { root._pairAndConnect() }
+                        onClicked: actionFn()
+                    }
+
+                    // ---- already paired / update address --------------------
+
+                    Text {
+                        visible: root._wirelessMode === "already" || root._wirelessMode === "update"
+                        text: root._wirelessMode === "already" ? "Already paired? Connect" : "Update address"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
                     Column {
                         width: parent.width
                         spacing: Style.space(2)
+                        visible: root._wirelessMode === "already" || root._wirelessMode === "update"
 
                         Text {
-                            text: "Connection address"
+                            text: "Wireless IP & port"
                             color: Color.foreground
                             font.family: Style.font.family
                             font.pixelSize: Style.font.body
@@ -355,7 +726,7 @@ Panel {
                         }
 
                         Text {
-                            text: "IP address & port on the main Wireless debugging screen"
+                            text: "Use the IP address & port shown on the main Wireless debugging screen."
                             color: Color.foreground
                             font.family: Style.font.family
                             font.pixelSize: Style.font.bodySmall
@@ -365,33 +736,27 @@ Panel {
                         }
 
                         TextField {
-                            id: connAddrField
+                            id: connectAddrField
                             width: parent.width
                             placeholderText: "192.168.1.20:5555"
-                            onAccepted: pairBtn.actionFn()
+                            onAccepted: connectBtn.actionFn()
                         }
                     }
 
                     Button {
-                        id: pairBtn
-                        text: "Pair"
+                        id: connectBtn
+                        visible: root._wirelessMode === "already" || root._wirelessMode === "update"
+                        text: "Connect"
                         enabled: !wirelessManager.busy
-                        property var actionFn: function() {
-                            scrcpyBackend.clearError()
-                            wirelessManager.clearError()
-                            wirelessManager.pairAndConnect(
-                                pairingAddrField.text,
-                                connAddrField.text,
-                                pairingCodeField.text
-                            )
-                            pairingCodeField.text = ""
-                        }
+                        property var actionFn: function() { root._connectFromField() }
                         onClicked: actionFn()
                     }
 
+                    // ---- shared status / progress ---------------------------
+
                     Text {
                         visible: wirelessManager.busy
-                        text: wirelessManager.state === "pairing" ? "Pairing…" : "Connecting…"
+                        text: wirelessManager.state === "pairing" ? "Pairing\u2026" : "Connecting\u2026"
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body
@@ -401,7 +766,7 @@ Panel {
                     }
 
                     Text {
-                        visible: wirelessManager.errorMessage !== ""
+                        visible: wirelessManager.errorMessage !== "" && root._wirelessMode !== "menu"
                         text: wirelessManager.errorMessage
                         color: Color.urgent
                         font.family: Style.font.family
@@ -411,15 +776,14 @@ Panel {
                         width: parent.width
                     }
 
-                    Text {
-                        visible: wirelessManager.state === "connected"
-                        text: "Connected. The device will appear in the list after Refresh."
-                        color: Color.accent
-                        font.family: Style.font.family
-                        font.pixelSize: Style.font.body
-                        textFormat: Text.PlainText
-                        wrapMode: Text.WordWrap
-                        width: parent.width
+                    // ---- navigation ----------------------------------------
+
+                    Button {
+                        visible: root._wirelessMode !== "menu"
+                        text: "Back"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() { root._setWirelessMode("menu") }
+                        onClicked: actionFn()
                     }
                 }
 

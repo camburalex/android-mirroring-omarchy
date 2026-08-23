@@ -32,3 +32,6 @@ upstream scrcpy as the mirroring engine. The plugin runs inside the existing
 - Current authoritative upstream source beats stale examples.
 - Keep diffs narrow; avoid unrelated refactors.
 - Normal Git operations are allowed; no force-pushing or history rewriting.
+- Repository searches and diagnostics stay inside the repository and
+  task-authorized paths; do not recursively scan the user's home directory,
+  unrelated config/state directories, or collect unrelated credentials/data.

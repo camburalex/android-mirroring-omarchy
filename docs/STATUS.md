@@ -28,7 +28,9 @@
     connection endpoint;
   - validates all input before launching ADB;
   - launches `adb pair <endpoint>` with the pairing code written to stdin after
-    the process starts (the code never appears in argv, state, logs, or disk);
+    the process starts (the code exists briefly in volatile in-memory state so it
+    can be written to ADB stdin; it is never persisted, normally logged, or
+    included in process argv);
   - on success, automatically launches `adb connect <endpoint>`;
   - refreshes the existing `DeviceManager` device list after a successful
     connect;
@@ -40,8 +42,22 @@
   - adds a compact "Pair wirelessly" form to the existing `KeyboardPanel`;
   - adds `qml/WirelessCommand.js` and `tests/WirelessCommand.test.js` with
     endpoint, pairing-code, and command fixtures.
-- M3-T2 remains required for saved wireless device metadata and
-  reconnect-after-restart behavior.
+- M3-T2 implements saved wireless device metadata and reconnect-after-restart:
+  - adds `qml/SavedDeviceStore.qml` and `qml/SavedDeviceData.js` for safe,
+    versioned, allow-list persistence in `Quickshell.stateDir` with atomic writes;
+  - persists only stable id, model, ADB serial, `lastKnownEndpoint`, connection
+    type, and timestamp; pairing codes and unknown fields are never stored;
+  - reorders the first-time pairing UX to collect the main Wireless Debugging
+    endpoint before opening the pairing-code popup, following the USER-OBSERVED
+    Redmi Note 8 Pro behavior;
+  - adds an "Already paired? Connect" path that requires no pairing code;
+  - adds a reconnect path that uses `lastKnownEndpoint` with `adb connect` and no
+    pairing code, plus an "Update address" flow that refreshes the saved endpoint
+    without re-pairing;
+  - keeps saved and live device rows semantically separate, suppressing a saved
+    row when the same endpoint is currently live, and showing saved-but-offline
+    phones as `Wireless · Unavailable`.
+- M3-T2 is active; persistence/reconnect awaits human hardware validation.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)
