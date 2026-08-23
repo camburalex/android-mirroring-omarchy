@@ -28,6 +28,12 @@ function _generateId() {
     return now + "-" + rand;
 }
 
+function _sameTransport(a, b) {
+    if (!a || !b) return false;
+    return a.lastKnownEndpoint === b.lastKnownEndpoint
+        && a.adbSerial === b.adbSerial;
+}
+
 // Copy only allow-listed fields and coerce to strings. This prevents any
 // credential, object, or arbitrary QML content from reaching disk.
 function sanitizeRecord(record) {
@@ -58,6 +64,30 @@ function _findRecordIndex(records, endpoint, serial) {
         if (serial && records[i].adbSerial === serial) return i;
     }
     return -1;
+}
+
+// Remove any records other than the one at keepIdx that share the same
+// transport. If a removed record has a model and the kept record does not,
+// copy the model over so useful metadata is preserved.
+function _removeTransportDuplicates(list, keepIdx) {
+    var keep = list[keepIdx];
+    if (!keep) return list.slice();
+    for (var i = 0; i < list.length; i++) {
+        if (i === keepIdx) continue;
+        var rec = list[i];
+        if (_sameTransport(rec, keep) && rec.model && !keep.model) {
+            keep.model = rec.model;
+        }
+    }
+    var out = [];
+    for (var j = 0; j < list.length; j++) {
+        if (j === keepIdx) {
+            out.push(keep);
+        } else if (!_sameTransport(list[j], keep)) {
+            out.push(list[j]);
+        }
+    }
+    return out;
 }
 
 // Add a new record or update an existing one. Matching is by explicit id
@@ -95,8 +125,10 @@ function addOrUpdateRecord(records, update) {
         rec.lastConnectedTimestamp = new Date().toISOString();
         if (update.model !== undefined && _coerceString(update.model) !== "") rec.model = _coerceString(update.model);
         if (update.lastConnectionType !== undefined) rec.lastConnectionType = _coerceString(update.lastConnectionType);
+        list = _removeTransportDuplicates(list, idx);
     } else {
         list.push(createRecord(endpoint, update.model, serial));
+        list = _removeTransportDuplicates(list, list.length - 1);
     }
 
     return list;
@@ -106,12 +138,18 @@ function addOrUpdateRecord(records, update) {
 // if the id was not found.
 function updateEndpoint(records, id, endpoint) {
     if (!records) return null;
+    var ep = _coerceString(endpoint);
     for (var i = 0; i < records.length; i++) {
         if (records[i].id === id) {
             var list = records.slice();
-            list[i].lastKnownEndpoint = _coerceString(endpoint);
-            list[i].lastConnectedTimestamp = new Date().toISOString();
-            return list;
+            var rec = list[i];
+            var oldEndpoint = rec.lastKnownEndpoint;
+            rec.lastKnownEndpoint = ep;
+            rec.lastConnectedTimestamp = new Date().toISOString();
+            if (rec.adbSerial === oldEndpoint) {
+                rec.adbSerial = ep;
+            }
+            return _removeTransportDuplicates(list, i);
         }
     }
     return null;

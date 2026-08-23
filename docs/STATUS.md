@@ -4,7 +4,7 @@
 - M2: PASS
 - M3: PASS
 - M4: PASS
-- M5: ACTIVE
+- M5: PASS
 - M0-T1 bootstrap completed.
 - M1-T1 native plugin-shell bring-up completed (manifest, plugin loading, shell
   IPC show/hide passed).
@@ -150,11 +150,30 @@
   `sessionStarted()` lifecycle event. The bar-widget Panel calls its existing
   `close()` method only when the backend confirms scrcpy has started, not
   directly from the Mirror click. Pre-start validation and recording-preparation
-  failures therefore remain visible in the open panel. Await human hardware
-  validation.
-- M5 remains ACTIVE. Remaining M5 polish includes:
+  failures therefore remain visible in the open panel. M5-T2A human hardware
+  validation: PASS.
+- M5-T2B addresses a pre-existing duplicate saved-wireless-device defect: after
+  an Android Wireless Debugging endpoint change, the Update Address flow could
+  leave two saved rows with the same `lastKnownEndpoint`/`adbSerial` because
+  `SavedDeviceData.addOrUpdateRecord` updated the requested record but did not
+  remove another record that now pointed to the same transport. The fix keeps
+  safe transport-level deduplication (`_removeTransportDuplicates`) on the
+  explicit `addOrUpdateRecord` and `updateEndpoint` paths only, preserving a
+  stable record id when an existing record is updated and collapsing duplicate
+  transports only during an explicit user update. Cold-start `parseState` no
+  longer merges independently persisted records, so historical saved endpoints
+  are not treated as a stable physical-device identity. Focused tests cover
+  endpoint updates, repeated updates, explicit-path deduplication, load-time
+  record preservation, and same-model device independence. Runtime deployment
+  and cold-start shell validation succeeded, and the existing duplicate persisted
+  state collapsed to one record after explicit Update Address. M5-T2B human
+  hardware validation: PASS.
+- M5 may be considered complete unless another concrete UX blocker remains.
+  Remaining M5 polish includes:
   - keyboard/focus UX
-  - numeric keypad issue in Update Address / numeric-entry UI (numeric keypad
-    input may fail in the Update Address/port field even when the Num Lock LED
-    is on; physically toggling Num Lock off/on restores numeric keypad entry)
+  - numeric keypad issue in Update Address / numeric-entry UI is currently
+    non-reproducible and is not treated as a confirmed active defect; previous
+    reports note that physically toggling Num Lock off/on can restore numeric
+    keypad entry when it occurs
   - responsive/error-state polish as applicable
+- Next milestone: M6 release hardening.

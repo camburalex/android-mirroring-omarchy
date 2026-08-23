@@ -115,6 +115,79 @@ function run() {
     });
     assert.strictEqual(both.length, 2, "same model does not merge distinct records");
 
+    // 12. Updating an existing record to an endpoint already owned by another
+    // record collapses to a single saved row, keeping the explicit record id.
+    const oldRecord = data.createRecord("192.168.1.20:1111", "SamePhone", "192.168.1.20:1111");
+    const newRecord = data.createRecord("192.168.1.20:2222", "SamePhone", "192.168.1.20:2222");
+    const updateMerged = data.addOrUpdateRecord([oldRecord, newRecord], {
+        id: oldRecord.id,
+        lastKnownEndpoint: "192.168.1.20:2222",
+        adbSerial: "192.168.1.20:2222",
+        model: "SamePhone"
+    });
+    assert.strictEqual(updateMerged.length, 1, "update merges records with identical transport");
+    assert.strictEqual(updateMerged[0].id, oldRecord.id, "update keeps the record being updated");
+    assert.strictEqual(updateMerged[0].lastKnownEndpoint, "192.168.1.20:2222", "updated endpoint is current");
+    assert.strictEqual(updateMerged[0].adbSerial, "192.168.1.20:2222", "adbSerial follows endpoint");
+
+    // 13. Repeated endpoint updates on the same record stay idempotent.
+    const baseRecord = data.createRecord("192.168.1.20:1111", "SamePhone", "192.168.1.20:1111");
+    const step1 = data.addOrUpdateRecord([baseRecord], {
+        id: baseRecord.id,
+        lastKnownEndpoint: "192.168.1.20:2222",
+        adbSerial: "192.168.1.20:2222",
+        model: "SamePhone"
+    });
+    const step2 = data.addOrUpdateRecord(step1, {
+        id: step1[0].id,
+        lastKnownEndpoint: "192.168.1.20:3333",
+        adbSerial: "192.168.1.20:3333",
+        model: "SamePhone"
+    });
+    assert.strictEqual(step2.length, 1, "repeated updates keep one record");
+    assert.strictEqual(step2[0].id, baseRecord.id, "stable id across updates");
+    assert.strictEqual(step2[0].lastKnownEndpoint, "192.168.1.20:3333", "newest endpoint wins");
+
+    // 14. updateEndpoint keeps adbSerial in sync and deduplicates.
+    const uRecord = data.createRecord("192.168.1.20:1111", "SamePhone", "192.168.1.20:1111");
+    const vRecord = data.createRecord("192.168.1.20:2222", "SamePhone", "192.168.1.20:2222");
+    const updatedU = data.updateEndpoint([uRecord, vRecord], uRecord.id, "192.168.1.20:2222");
+    assert.strictEqual(updatedU.length, 1, "updateEndpoint merges duplicate transports");
+    assert.strictEqual(updatedU[0].id, uRecord.id, "updateEndpoint keeps the record id");
+    assert.strictEqual(updatedU[0].lastKnownEndpoint, "192.168.1.20:2222");
+    assert.strictEqual(updatedU[0].adbSerial, "192.168.1.20:2222");
+
+    // 15. Load-time parsing must NOT merge independently persisted records
+    // just because they share a historical network transport. A saved endpoint
+    // is not a stable physical-device identity, so two records with the same
+    // endpoint/adbSerial but different models and different logical ids must
+    // both survive a serialization round-trip.
+    const dupA = data.createRecord("192.168.1.20:4444", "PhoneA", "192.168.1.20:4444");
+    const dupB = data.createRecord("192.168.1.20:4444", "PhoneB", "192.168.1.20:4444");
+    dupB.lastConnectedTimestamp = new Date(Date.now() + 1000).toISOString();
+    const parsedDup = data.parseState(data.serializeState([dupA, dupB]));
+    assert.strictEqual(parsedDup.devices.length, 2, "parseState preserves independent records with the same transport");
+    assert.notStrictEqual(parsedDup.devices[0].id, parsedDup.devices[1].id, "different logical ids preserved");
+    assert.notStrictEqual(parsedDup.devices[0].model, parsedDup.devices[1].model, "different models preserved");
+
+    // 16. Two distinct phones with the same model but different endpoints
+    // remain independent after a serialization round-trip.
+    const phoneA = data.createRecord("192.168.1.20:5555", "SameModel", "192.168.1.20:5555");
+    const phoneB = data.createRecord("192.168.1.20:6666", "SameModel", "192.168.1.20:6666");
+    const twoPhones = data.parseState(data.serializeState([phoneA, phoneB]));
+    assert.strictEqual(twoPhones.devices.length, 2, "same model with different endpoints stays separate");
+
+    // 17. Pairing a genuinely new device with a new endpoint creates a new record.
+    const firstRecord = data.createRecord("192.168.1.20:5555", "NewModel", "192.168.1.20:5555");
+    const withNewDevice = data.addOrUpdateRecord([firstRecord], {
+        lastKnownEndpoint: "192.168.1.20:7777",
+        adbSerial: "192.168.1.20:7777",
+        model: "OtherModel"
+    });
+    assert.strictEqual(withNewDevice.length, 2, "new endpoint creates a new logical record");
+    assert.strictEqual(withNewDevice[0].id, firstRecord.id, "old record unchanged");
+    assert.notStrictEqual(withNewDevice[1].id, firstRecord.id, "new record has its own id");
+
     console.log("All SavedDeviceData fixtures passed.");
 }
 
