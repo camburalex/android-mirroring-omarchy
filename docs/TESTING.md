@@ -91,10 +91,23 @@ Any QML integration change must also survive a full cold restart:
 
 ### M3-T2
 
-- Saved-device metadata persistence: awaiting hardware validation
-- Reconnect without pairing code: awaiting hardware validation
-- Stale endpoint update without re-pairing: awaiting hardware validation
+- Saved-device persistence: PASS
+- Reconnect without pairing code: PASS
+- Stale endpoint update without re-pairing: PASS
+- Final saved-device duplicate/update behavior: PASS
 
-### Future work
+### M4
 
-- Recording and quality presets: not yet implemented (M4/M5)
+- Presets (Performance, Balanced, Quality): PASS
+- Audio On/Off: PASS
+- Screen off On/Off: PASS
+- Recording: PASS
+- USB/wireless regression: PASS
+
+### M5
+
+- Native Hyprland floating/theme behavior: PASS
+- Plugin-owned XWayland rotation both directions: PASS
+- Input/Stop: PASS
+- Panel auto-dismiss/reopen/Stop: PASS
+- Saved-device duplicate fix: PASS

@@ -52,8 +52,8 @@
   - persists only stable id, model, ADB serial, `lastKnownEndpoint`, connection
     type, and timestamp; pairing codes and unknown fields are never stored;
   - reorders the first-time pairing UX to collect the main Wireless Debugging
-    endpoint before opening the pairing-code popup, following the USER-OBSERVED
-    Redmi Note 8 Pro behavior;
+    endpoint before opening the pairing-code popup, following user-observed
+    Android Wireless Debugging behavior;
   - adds an "Already paired? Connect" path that requires no pairing code;
   - adds a reconnect path that uses `lastKnownEndpoint` with `adb connect` and no
     pairing code, plus an "Update address" flow that refreshes the saved endpoint
@@ -61,7 +61,6 @@
   - keeps saved and live device rows semantically separate, suppressing a saved
     row when the same endpoint is currently live, and showing saved-but-offline
     phones as `Wireless · Unavailable`.
-- M3-T2 implements saved wireless device metadata and reconnect-after-restart.
 - M3-T2B hardens saved wireless classification, stale update-intent handling,
   and FileView persistence error semantics. Final saved/reconnect hardware
   validation passed.
@@ -109,7 +108,7 @@
   covered by `tests/ScrcpyCommand.test.js`.
 - M4 recording hardware validation: PASS (all three presets, Audio On/Off, Screen
   off On/Off, safe recording, USB/wireless regression).
-- M5 is ACTIVE (branched from `a1101ee`).
+- M5 is PASS.
 - M5-T1 adds a stable, application-controlled scrcpy window identity
   (`--window-title=Android Mirroring`) and a Quattro-native Hyprland Lua rule
   (`hyprland.lua`) that floats, centers, and applies a 1px border while
@@ -168,12 +167,12 @@
   and cold-start shell validation succeeded, and the existing duplicate persisted
   state collapsed to one record after explicit Update Address. M5-T2B human
   hardware validation: PASS.
-- M5 may be considered complete unless another concrete UX blocker remains.
-  Remaining M5 polish includes:
-  - keyboard/focus UX
-  - numeric keypad issue in Update Address / numeric-entry UI is currently
-    non-reproducible and is not treated as a confirmed active defect; previous
-    reports note that physically toggling Num Lock off/on can restore numeric
-    keypad entry when it occurs
-  - responsive/error-state polish as applicable
-- Next milestone: M6 release hardening.
+- M5 is PASS.
+- Stable v0.1 product name: Android Mirroring
+- Stable v0.1 plugin id: dev.android-mirroring
+- M6 is ACTIVE.
+- M6-T1 release packaging and documentation is statically complete on this
+  branch. The public README, LICENSE, manifest release metadata, release
+  checklist, and install/remove/Hyprland documentation have been prepared.
+- Final M6 security, resource-cleanup, fresh-install, and hardware release
+  validation gates remain pending.
