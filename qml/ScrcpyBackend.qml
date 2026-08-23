@@ -18,12 +18,22 @@ Scope {
     property string errorMessage: ""
     readonly property string diagnostics: _diagBuffer
 
+    property alias recordingActive: recordingManager.active
+    property alias activeRecordingPath: recordingManager.activePath
+    property alias lastRecordingPath: recordingManager.lastPath
+
     property string _diagBuffer: ""
     property bool _stopIntended: false
     property var _sessionOptions: null
 
     signal sessionStarted()
     signal sessionEnded(bool expected, int exitCode)
+
+    RecordingManager {
+        id: recordingManager
+        onPrepared: function(path, directory) { root._onRecordingPrepared(path, directory) }
+        onFailed: function(reason) { root._onRecordingFailed(reason) }
+    }
 
     function startMirroring(serial, options) {
         if (root.running || root.starting || root.stopping) {
@@ -37,10 +47,8 @@ Scope {
         }
 
         var sessionOptions;
-        var cmd;
         try {
             sessionOptions = ScrcpyCommand.normalizeOptions(options);
-            cmd = ScrcpyCommand.buildCommand(serial, sessionOptions);
         } catch (err) {
             root.errorMessage = err.message || "Invalid launch options.";
             return;
@@ -54,8 +62,54 @@ Scope {
         root.starting = true;
         root.stopping = false;
 
+        if (sessionOptions.recordingEnabled) {
+            recordingManager.prepare();
+        } else {
+            root._launchScrcpy(sessionOptions, "");
+        }
+    }
+
+    function _onRecordingPrepared(path, directory) {
+        if (!root.starting || root.stopping) {
+            recordingManager.cancel();
+            return;
+        }
+
+        root._launchScrcpy(root._sessionOptions, path);
+    }
+
+    function _onRecordingFailed(reason) {
+        if (!root.starting || root.stopping) return;
+        root._failStart(reason);
+    }
+
+    function _launchScrcpy(sessionOptions, recordingPath) {
+        var cmd;
+        try {
+            cmd = ScrcpyCommand.buildCommand(root.activeSerial, sessionOptions, recordingPath);
+        } catch (err) {
+            root._failStart(err.message || "Could not build scrcpy command.");
+            return;
+        }
+
+        if (recordingPath) {
+            recordingManager.markActive(recordingPath);
+        }
+
         scrcpyProc.command = cmd.argv;
         scrcpyProc.running = true;
+    }
+
+    function _failStart(reason) {
+        recordingManager.cancel();
+
+        root.starting = false;
+        root.running = false;
+        root.stopping = false;
+        root._stopIntended = false;
+        root._sessionOptions = null;
+        root.activeSerial = "";
+        root.errorMessage = reason;
     }
 
     function stopMirroring() {
@@ -64,7 +118,25 @@ Scope {
 
         root.stopping = true;
         root._stopIntended = true;
-        scrcpyProc.running = false;
+
+        if (recordingManager.busy) {
+            recordingManager.cancel();
+            root._resetIdle(true);
+        } else if (scrcpyProc.running || root.running) {
+            scrcpyProc.running = false;
+        } else {
+            root._resetIdle(true);
+        }
+    }
+
+    function _resetIdle(userCancelled) {
+        root.starting = false;
+        root.running = false;
+        root.stopping = false;
+        root._stopIntended = false;
+        root._sessionOptions = null;
+        root.activeSerial = "";
+        if (!userCancelled) root.errorMessage = "";
     }
 
     function clearError() {
@@ -97,6 +169,7 @@ Scope {
         root.running = true;
         root.stopping = false;
         root.errorMessage = "";
+        if (recordingManager.active) recordingManager.releaseReserved();
         root.sessionStarted();
     }
 
@@ -112,6 +185,17 @@ Scope {
         root._sessionOptions = null;
 
         if (root.activeSerial !== "") root.activeSerial = "";
+
+        if (recordingManager.active) {
+            // Preserve the recording when the session reached the running state
+            // or was intentionally stopped. Discard it only if scrcpy failed
+            // before it could start writing.
+            if (wasRunning) {
+                recordingManager.clearActive();
+            } else {
+                recordingManager.discardActive();
+            }
+        }
 
         root.errorMessage = ScrcpyState.classifyExit(
             wasStarting,

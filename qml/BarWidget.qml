@@ -23,6 +23,7 @@ Panel {
     property string _selectedPreset: "balanced"
     property bool _audioOn: true
     property bool _screenOff: false
+    property bool _recordingOn: false
     readonly property bool _controlsEnabled: !scrcpyBackend.running && !scrcpyBackend.starting && !scrcpyBackend.stopping
 
     DeviceManager {
@@ -198,7 +199,8 @@ Panel {
         return {
             preset: root._selectedPreset,
             audioEnabled: root._audioOn,
-            screenOff: root._screenOff
+            screenOff: root._screenOff,
+            recordingEnabled: root._recordingOn
         }
     }
 
@@ -212,6 +214,10 @@ Panel {
 
     function _cycleScreenOff() {
         root._screenOff = !root._screenOff
+    }
+
+    function _cycleRecording() {
+        root._recordingOn = !root._recordingOn
     }
 
     function _startPairStep2() {
@@ -338,7 +344,9 @@ Panel {
                     Text {
                         text: scrcpyBackend.stopping
                             ? "Stopping\u2026"
-                            : (scrcpyBackend.starting ? "Starting\u2026" : "Mirroring")
+                            : (scrcpyBackend.starting
+                                ? "Starting\u2026"
+                                : (scrcpyBackend.recordingActive ? "Mirroring \u00b7 Recording" : "Mirroring"))
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body
@@ -545,6 +553,47 @@ Panel {
                             onClicked: actionFn()
                             Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
                         }
+                    }
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: Style.space(8)
+
+                        Text {
+                            text: "Recording"
+                            color: Color.foreground
+                            font.family: Style.font.family
+                            font.pixelSize: Style.font.body
+                            textFormat: Text.PlainText
+                            Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        Button {
+                            text: root._recordingOn ? "On" : "Off"
+                            focusable: true
+                            bordered: true
+                            selected: root._recordingOn
+                            enabled: root._controlsEnabled
+                            property var actionFn: function() { root._cycleRecording() }
+                            onClicked: actionFn()
+                            Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                        }
+                    }
+
+                    Text {
+                        visible: root._recordingOn
+                        text: "Saves to Videos/Android Mirroring"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                        opacity: 0.7
                     }
                 }
 

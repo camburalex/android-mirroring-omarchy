@@ -19,6 +19,11 @@ var PRESETS = {
 
 var DEFAULT_PRESET = "balanced";
 
+// Same framing rule as INVALID_SERIAL, but spaces are allowed because a
+// recording path may legitimately contain them and will always be one argv
+// element, never a shell string.
+var INVALID_RECORDING_PATH = /[\x00-\x1F\x7F]/;
+
 function isValidSerial(serial) {
     if (typeof serial !== "string") return false;
     if (serial.length === 0) return false;
@@ -30,11 +35,30 @@ function normalizeOptions(options) {
     return {
         preset: options.preset || DEFAULT_PRESET,
         audioEnabled: options.audioEnabled !== false,
-        screenOff: options.screenOff === true
+        screenOff: options.screenOff === true,
+        recordingEnabled: options.recordingEnabled === true
     };
 }
 
-function buildCommand(serial, options) {
+function _validateRecordingPath(path) {
+    if (typeof path !== "string" || path.length === 0) {
+        throw new Error("Recording enabled but no recording path provided.");
+    }
+    if (path.indexOf("\x00") >= 0 || INVALID_RECORDING_PATH.test(path)) {
+        throw new Error("Recording path contains unsafe characters.");
+    }
+    if (path.indexOf("..") >= 0) {
+        throw new Error("Recording path must be absolute and cannot contain parent references.");
+    }
+    if (!path.startsWith("/")) {
+        throw new Error("Recording path must be absolute.");
+    }
+    if (!path.endsWith(".mp4")) {
+        throw new Error("Recording path must end with .mp4.");
+    }
+}
+
+function buildCommand(serial, options, recordingPath) {
     if (!isValidSerial(serial)) {
         throw new Error("Invalid or unsafe scrcpy serial");
     }
@@ -55,6 +79,10 @@ function buildCommand(serial, options) {
     }
     if (opts.screenOff) {
         argv.push("--turn-screen-off");
+    }
+    if (opts.recordingEnabled) {
+        _validateRecordingPath(recordingPath);
+        argv.push("--record=" + recordingPath);
     }
 
     return {

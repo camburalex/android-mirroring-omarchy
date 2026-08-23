@@ -87,6 +87,20 @@
 - M4 is now active, branched from `d6c1a61`.
 - M4-T1 implements Performance/Balanced/Quality presets, Audio On/Off, and
   Screen off On/Off in the production `ScrcpyCommand.js` builder and the
-  `BarWidget.qml` panel. Balanced is the default preset. Recording remains
-  pending M4-T2. Preset/audio/screen-off hardware validation is still required
-  after source review.
+  `BarWidget.qml` panel. Balanced is the default preset.
+- M4-T1 hardware validation C1–C11 passed: Performance/Balanced/Quality presets
+  show light but noticeable differences, Audio On/Off works, Screen off On/Off
+  works, mirrored input remains usable with the physical screen off, and
+  USB/wireless regressions pass. Settings reset to Balanced/Audio On/Screen off
+  Off after shell restart.
+- M4-T2 adds safe scrcpy session recording through upstream scrcpy's
+  `--record=<path>.mp4` mechanism. Recording is Off by default, controlled from
+  the BarWidget panel, and records the actual mirrored stream. Audio inclusion
+  follows the selected Audio state. The product recording directory is
+  `Android Mirroring` under the standard Videos/Movies location, filenames are
+  timestamped, and each output path is atomically reserved with GNU mktemp.
+  Recording preparation, directory creation, and path validation are performed
+  by a persistent `RecordingManager` using shell-free direct argv, and the full
+  24-state command matrix (3 presets × 2 audio × 2 screen-off × 2 recording) is
+  covered by `tests/ScrcpyCommand.test.js`.
+- M4 remains OPEN pending the human recording hardware validation pass.
