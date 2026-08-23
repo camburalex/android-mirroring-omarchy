@@ -104,6 +104,17 @@ function run() {
     assert.strictEqual(cleanJson.indexOf("pairingCode") < 0, true, "pairingCode absent in output");
     assert.strictEqual(cleanJson.indexOf("arbitrary") < 0, true, "arbitrary field absent in output");
 
+    // 11. two identical phone models stay independent; matching is by exact
+    // lastKnownEndpoint/adbSerial, not by model name.
+    const sameModelA = data.createRecord("192.168.1.20:5555", "SameModel", "192.168.1.20:5555");
+    const sameModelB = data.createRecord("192.168.1.30:5555", "SameModel", "192.168.1.30:5555");
+    const both = data.addOrUpdateRecord([sameModelA], {
+        model: "SameModel",
+        adbSerial: "192.168.1.30:5555",
+        lastKnownEndpoint: "192.168.1.30:5555"
+    });
+    assert.strictEqual(both.length, 2, "same model does not merge distinct records");
+
     console.log("All SavedDeviceData fixtures passed.");
 }
 

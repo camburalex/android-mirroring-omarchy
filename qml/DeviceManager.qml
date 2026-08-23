@@ -19,8 +19,35 @@ Scope {
     // from a successful WirelessManager connect and is not persisted.
     property string wirelessEndpoint: ""
 
+    // Saved/transient wireless identities supplied from outside. The parser
+    // treats each string as a known wireless serial/endpoint. A live non-USB
+    // device is only reported as wireless when its serial is in this set.
+    property var knownWirelessSerials: []
+
     property string _stdoutText: ""
     property string _stderrText: ""
+
+    onWirelessEndpointChanged: root._reparseIfNeeded()
+    onKnownWirelessSerialsChanged: root._reparseIfNeeded()
+
+    function _buildWirelessContext() {
+        var set = {}
+        if (root.wirelessEndpoint) set[root.wirelessEndpoint] = true
+        if (Array.isArray(root.knownWirelessSerials)) {
+            for (var i = 0; i < root.knownWirelessSerials.length; i++) {
+                var s = String(root.knownWirelessSerials[i] || "")
+                if (s) set[s] = true
+            }
+        }
+        var result = []
+        for (var k in set) result.push(k)
+        return result
+    }
+
+    function _reparseIfNeeded() {
+        if (!root._stdoutText) return
+        root.devices = AdbParser.parseDevices(root._stdoutText, root._buildWirelessContext())
+    }
 
     function refresh() {
         if (root.busy) return
@@ -71,7 +98,7 @@ Scope {
             }
 
             var out = String(root._stdoutText || adbStdout.text || "")
-            root.devices = AdbParser.parseDevices(out, root.wirelessEndpoint)
+            root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
         }
     }
 }

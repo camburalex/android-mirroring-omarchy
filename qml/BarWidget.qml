@@ -70,7 +70,10 @@ Panel {
 
     Connections {
         target: savedStore
-        function onDevicesChanged() { root._rebuildDisplayItems() }
+        function onDevicesChanged() {
+            root._rebuildKnownWirelessSerials()
+            root._rebuildDisplayItems()
+        }
     }
 
     WidgetButton {
@@ -86,6 +89,14 @@ Panel {
     }
 
     function _setWirelessMode(mode) {
+        if (mode !== "update") {
+            root._updateRecord = null
+        }
+        // Any mode change away from an in-flight connection flow drops the
+        // transient connect-intent state. It will be set again if the user
+        // actually starts a new connection.
+        root._pendingRecordId = ""
+        root._pendingWirelessEndpoint = ""
         root._wirelessMode = mode
         root._formError = ""
         wirelessManager.clearError()
@@ -133,7 +144,8 @@ Panel {
             var record = saved[j]
             var isLive = false
             for (var k = 0; k < live.length; k++) {
-                if (live[k].serial === record.lastKnownEndpoint) {
+                if (live[k].serial === record.lastKnownEndpoint
+                    || live[k].serial === record.adbSerial) {
                     isLive = true
                     break
                 }
@@ -142,6 +154,25 @@ Panel {
         }
 
         root.displayItems = result
+    }
+
+    // Build the set of known wireless identities for the parser. This lets a
+    // previously saved phone be classified as "Wireless Ready" after a shell
+    // restart, as long as the live ADB serial exactly matches a saved endpoint
+    // or adbSerial.
+    function _rebuildKnownWirelessSerials() {
+        var set = {}
+        var saved = savedStore.devices || []
+        for (var i = 0; i < saved.length; i++) {
+            var rec = saved[i]
+            if (rec.lastKnownEndpoint) set[rec.lastKnownEndpoint] = true
+            if (rec.adbSerial && rec.adbSerial !== rec.lastKnownEndpoint) {
+                set[rec.adbSerial] = true
+            }
+        }
+        var result = []
+        for (var k in set) result.push(k)
+        deviceManager.knownWirelessSerials = result
     }
 
     function _moveFocus(direction) {
@@ -196,6 +227,7 @@ Panel {
         scrcpyBackend.clearError()
         wirelessManager.clearError()
 
+        root._pendingRecordId = ""
         if (root._updateRecord) root._pendingRecordId = root._updateRecord.id
         wirelessManager.connect(endpoint)
     }
@@ -334,7 +366,7 @@ Panel {
                 }
 
                 Text {
-                    visible: savedStore.error !== "" && !savedStore.loaded
+                    visible: savedStore.error !== ""
                     text: savedStore.error
                     color: Color.urgent
                     font.family: Style.font.family

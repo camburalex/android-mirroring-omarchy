@@ -57,7 +57,10 @@
   - keeps saved and live device rows semantically separate, suppressing a saved
     row when the same endpoint is currently live, and showing saved-but-offline
     phones as `Wireless · Unavailable`.
-- M3-T2 is active; persistence/reconnect awaits human hardware validation.
+- M3-T2 implements saved wireless device metadata and reconnect-after-restart.
+- M3-T2B hardens saved wireless classification, stale update-intent handling,
+  and FileView persistence error semantics. Final saved/reconnect hardware
+  validation remains required.
 - Installed target environment:
   - Omarchy 4.0.0-1
   - Quickshell 0.3.0 (quickshell-git)

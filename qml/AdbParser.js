@@ -15,8 +15,21 @@ function isNoise(line) {
     return false
 }
 
+function _toWirelessSet(wirelessContext) {
+    var set = {}
+    if (typeof wirelessContext === "string" && wirelessContext !== "") {
+        set[wirelessContext] = true
+    } else if (Array.isArray(wirelessContext)) {
+        for (var i = 0; i < wirelessContext.length; i++) {
+            var s = String(wirelessContext[i] || "")
+            if (s) set[s] = true
+        }
+    }
+    return set
+}
+
 function parseDevices(text, wirelessContext) {
-    var context = String(wirelessContext || "")
+    var contextSet = _toWirelessSet(wirelessContext)
     var normalized = normalizeNewlines(text)
     var lines = normalized.split("\n")
     var devices = []
@@ -43,11 +56,12 @@ function parseDevices(text, wirelessContext) {
         }
 
         var connection = metadata.usb ? "usb" : "unknown"
-        // If this serial exactly matches an explicitly-connected wireless
-        // endpoint and the record carries no USB metadata, classify it as a
-        // wireless transport. This avoids misclassifying emulators or unknown
-        // network devices.
-        if (context && !metadata.usb && serial === context) {
+        // If this serial is in the set of explicitly-known wireless
+        // identities (current transient endpoint plus saved lastKnownEndpoint
+        // and adbSerial values) and the record carries no USB metadata,
+        // classify it as a wireless transport. This avoids misclassifying
+        // emulators, unknown network devices, or phones reached over USB.
+        if (!metadata.usb && contextSet[serial]) {
             connection = "wireless"
         }
         var label = metadata.model || serial

@@ -25,14 +25,35 @@ Scope {
             root.error = "";
             root.loaded = true;
         } else {
-            root.devices = [];
-            root.error = result.error || "Saved-devices state could not be loaded.";
+            // Do not overwrite the current in-memory list with empty state when
+            // the on-disk file is malformed or otherwise broken. Mark loaded as
+            // false so persist will not clobber the problematic file either.
+            root.error = result.error || "Could not load remembered devices.";
             root.loaded = false;
         }
     }
 
+    function _onLoadFailed(error) {
+        if (error === FileViewError.FileNotFound) {
+            // A missing state file is the normal first-run condition.
+            root._load("");
+            return;
+        }
+
+        // Genuine path/storage failures are not a successful empty state and
+        // must not silently erase existing in-memory state.
+        root.loaded = false;
+        root.error = "Could not load remembered devices.";
+    }
+
+    function _onSaveFailed(error) {
+        // Retain in-memory state; do not report save success or dump raw JSON.
+        root.error = "Could not save remembered devices.";
+    }
+
     function _persist() {
         if (!root.loaded) return;
+        root.error = "";
         stateFile.setText(SavedDeviceData.serializeState(root.devices));
     }
 
@@ -85,7 +106,9 @@ Scope {
         watchChanges: false
         printErrors: false
         onLoaded: root._load(text())
-        onLoadFailed: root._load("")
+        onLoadFailed: function(error) { root._onLoadFailed(error) }
+        onSaved: { root.error = ""; root.saved() }
+        onSaveFailed: function(error) { root._onSaveFailed(error) }
     }
 
     Component.onCompleted: ensureDirProc.running = true
