@@ -105,6 +105,8 @@ Scope {
     function _failStart(reason) {
         recordingManager.cancel();
 
+        if (healthProc.running) healthProc.running = false;
+
         root.starting = false;
         root.running = false;
         root.stopping = false;
@@ -132,6 +134,8 @@ Scope {
     }
 
     function _resetIdle(userCancelled) {
+        if (healthProc.running) healthProc.running = false;
+
         root.starting = false;
         root.running = false;
         root.stopping = false;
@@ -172,12 +176,15 @@ Scope {
         root.stopping = false;
         root.errorMessage = "";
         if (recordingManager.active) recordingManager.releaseReserved();
+        root._startHealthCheck();
         root.sessionStarted();
     }
 
     function _onExited(exitCode, exitStatus) {
         if (root._exitedHandled) return;
         root._exitedHandled = true;
+
+        if (healthProc.running) healthProc.running = false;
 
         var wasStarting = root.starting;
         var wasRunning = root.running;
@@ -211,6 +218,49 @@ Scope {
         );
 
         root.sessionEnded(wasStopping, exitCode);
+    }
+
+    // The ADB transport over TCP can leave scrcpy in a half-open state when
+    // the phone's network disappears. A lightweight health check runs while a
+    // session is active; if it fails, the tracked scrcpy session is ended the
+    // same way as any other unexpected exit.
+    function _startHealthCheck() {
+        if (!root.running || root.stopping || root.starting) return;
+        if (root.activeSerial === "") return;
+        if (healthProc.running) return;
+
+        // Only wireless (IP:port) endpoints need a transport-level liveness
+        // probe. USB sessions are already tied to the cable and scrcpy exits
+        // quickly on unplug.
+        if (root.activeSerial.indexOf(":") < 0 || root.activeSerial.indexOf(".") < 0) return;
+
+        var scriptPath = Qt.resolvedUrl("health-check.sh").toString().replace(/^file:\/\//, "");
+        healthProc.command = ["bash", scriptPath, root.activeSerial];
+        healthProc.running = true;
+    }
+
+    function _onHealthCheckExited(exitCode, exitStatus) {
+        if (!root.running || root.stopping || root.starting) return;
+        if (exitCode === 0 && exitStatus === 0) return;
+
+        root._onExited(1, 1);
+        if (scrcpyProc.running) scrcpyProc.running = false;
+    }
+
+    Scope {
+        id: healthScope
+
+        Process {
+            id: healthProc
+            running: false
+            command: []
+            clearEnvironment: false
+
+            stdout: SplitParser { onRead: function(line) {} }
+            stderr: SplitParser { onRead: function(line) {} }
+
+            onExited: function(exitCode, exitStatus) { root._onHealthCheckExited(exitCode, exitStatus) }
+        }
     }
 
     Process {
