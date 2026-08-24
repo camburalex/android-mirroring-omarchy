@@ -14,10 +14,6 @@ a Quattro-native Hyprland floating window.
 This product is the Omarchy-native interface, device/session layer, and
 integration. It is **not** a fork or reimplementation of scrcpy.
 
-## Preview
-
-A marketplace preview image may be added separately.
-
 ## Features
 
 - USB device discovery via `adb devices -l`.
