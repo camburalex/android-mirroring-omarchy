@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "AdbParser.js" as AdbParser
+import "BoundedOutput.js" as BoundedOutput
 
 // Scope exposes `children` as its default property and is intended for
 // nonvisual Quickshell objects. QtObject does not provide a default data
@@ -27,13 +28,15 @@ Scope {
     property string _stdoutText: ""
     property string _stderrText: ""
 
+    property var _stdoutCapture: null
+    property var _stderrCapture: null
+
     // Run-coordination state. A discovery result is only finalized once the
-    // relevant process has exited and the complete stdout for that run is
-    // available, regardless of signal ordering.
-    property bool _runStdoutComplete: false
-    property bool _runStderrComplete: false
+    // process has exited and both streams have been drained through the bounded
+    // SplitParsers.
     property bool _runProcessComplete: false
     property bool _runFinalized: false
+    property bool _runExcessive: false
     property int _runExitCode: 0
 
     signal refreshCompleted(bool success)
@@ -73,10 +76,11 @@ Scope {
         // when the current run finalizes.
         root._stdoutText = ""
         root._stderrText = ""
-        root._runStdoutComplete = false
-        root._runStderrComplete = false
         root._runProcessComplete = false
         root._runFinalized = false
+        root._runExcessive = false
+        root._stdoutCapture = BoundedOutput.create()
+        root._stderrCapture = BoundedOutput.create()
 
         // A normal tracked Process is used with `running = true`; busy gating
         // above prevents overlapping discovery runs rather than interrupting
@@ -91,13 +95,24 @@ Scope {
 
     function _attemptFinalize() {
         if (root._runFinalized) return
-        if (!root._runProcessComplete || !root._runStdoutComplete) return
+        if (!root._runProcessComplete) return
 
         root._runFinalized = true
         root.busy = false
 
+        if (root._runExcessive
+            || BoundedOutput.isOverflow(root._stdoutCapture)
+            || BoundedOutput.isOverflow(root._stderrCapture)) {
+            console.warn("adb devices -l produced excessive output")
+            root.error = "ADB returned an unexpectedly large response."
+            root._stdoutText = ""
+            root.devices = []
+            root.refreshCompleted(false)
+            return
+        }
+
         if (root._runExitCode !== 0) {
-            var err = String(root._stderrText || "").trim()
+            var err = String(BoundedOutput.value(root._stderrCapture) || "").trim()
             if (err) console.warn("adb devices -l failed:", root._runExitCode, err)
             root.error = "ADB discovery failed."
             root.devices = []
@@ -105,7 +120,8 @@ Scope {
             return
         }
 
-        var out = String(root._stdoutText || "")
+        var out = String(BoundedOutput.value(root._stdoutCapture) || "")
+        root._stdoutText = out
         root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
         root.refreshCompleted(true)
     }
@@ -115,23 +131,25 @@ Scope {
 
         command: ["adb", "devices", "-l"]
 
-        stdout: StdioCollector {
-            id: adbStdout
-            waitForEnd: true
-            onStreamFinished: {
-                root._stdoutText = String(text || "")
-                root._runStdoutComplete = true
-                root._attemptFinalize()
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._stdoutCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._stdoutCapture)) {
+                    root._runExcessive = true;
+                    if (adbProc.running) adbProc.running = false;
+                }
             }
         }
 
-        stderr: StdioCollector {
-            id: adbStderr
-            waitForEnd: true
-            onStreamFinished: {
-                root._stderrText = String(text || "")
-                root._runStderrComplete = true
-                root._attemptFinalize()
+        stderr: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._stderrCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._stderrCapture)) {
+                    root._runExcessive = true;
+                    if (adbProc.running) adbProc.running = false;
+                }
             }
         }
 

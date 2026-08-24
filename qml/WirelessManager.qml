@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "WirelessCommand.js" as WirelessCommand
+import "BoundedOutput.js" as BoundedOutput
 
 // Cold-start-safe owner for the wireless pair/connect ADB processes.
 // Uses Scope because it owns Quickshell.Io.Process children.
@@ -22,10 +23,10 @@ Scope {
     property string _pairingCode: ""
     property string _lastConnectionEndpoint: ""
 
-    property string _pairStdout: ""
-    property string _pairStderr: ""
-    property string _connectStdout: ""
-    property string _connectStderr: ""
+    property var _pairOutCapture: null
+    property var _pairErrCapture: null
+    property var _connectOutCapture: null
+    property var _connectErrCapture: null
 
     signal connected(string endpoint)
 
@@ -57,8 +58,8 @@ Scope {
         root._pairingEndpoint = pairingEndpoint;
         root._connectionEndpoint = connectionEndpoint;
         root._pairingCode = pairingCode;
-        root._pairStdout = "";
-        root._pairStderr = "";
+        root._pairOutCapture = BoundedOutput.create();
+        root._pairErrCapture = BoundedOutput.create();
         root.state = "pairing";
         root.errorMessage = "";
 
@@ -80,8 +81,8 @@ Scope {
         }
 
         root._connectionEndpoint = connectionEndpoint;
-        root._connectStdout = "";
-        root._connectStderr = "";
+        root._connectOutCapture = BoundedOutput.create();
+        root._connectErrCapture = BoundedOutput.create();
         root.state = "connecting";
         root.errorMessage = "";
 
@@ -105,16 +106,20 @@ Scope {
         command: []
         stdinEnabled: true
 
-        stdout: StdioCollector {
-            id: pairStdout
-            waitForEnd: true
-            onStreamFinished: root._pairStdout = String(text || "")
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._pairOutCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._pairOutCapture) && pairProc.running) pairProc.running = false;
+            }
         }
 
-        stderr: StdioCollector {
-            id: pairStderr
-            waitForEnd: true
-            onStreamFinished: root._pairStderr = String(text || "")
+        stderr: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._pairErrCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._pairErrCapture) && pairProc.running) pairProc.running = false;
+            }
         }
 
         onStarted: {
@@ -127,8 +132,14 @@ Scope {
         onExited: function(exitCode, exitStatus) {
             root._pairingCode = "";
 
-            var out = String(root._pairStdout || pairStdout.text || "");
-            var err = String(root._pairStderr || pairStderr.text || "");
+            if (BoundedOutput.isOverflow(root._pairOutCapture) || BoundedOutput.isOverflow(root._pairErrCapture)) {
+                root.state = "error";
+                root.errorMessage = "ADB returned an unexpectedly large response.";
+                return;
+            }
+
+            var out = BoundedOutput.value(root._pairOutCapture);
+            var err = BoundedOutput.value(root._pairErrCapture);
             var result = WirelessCommand.classifyPairResult(exitCode, out, err);
 
             if (!result.ok) {
@@ -138,8 +149,8 @@ Scope {
             }
 
             root._lastConnectionEndpoint = root._connectionEndpoint;
-            root._connectStdout = "";
-            root._connectStderr = "";
+            root._connectOutCapture = BoundedOutput.create();
+            root._connectErrCapture = BoundedOutput.create();
             root.state = "connecting";
 
             var connect2Cmd = WirelessCommand.buildConnectCommand(root._connectionEndpoint);
@@ -164,21 +175,31 @@ Scope {
         running: false
         command: []
 
-        stdout: StdioCollector {
-            id: connectStdout
-            waitForEnd: true
-            onStreamFinished: root._connectStdout = String(text || "")
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._connectOutCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._connectOutCapture) && connectProc.running) connectProc.running = false;
+            }
         }
 
-        stderr: StdioCollector {
-            id: connectStderr
-            waitForEnd: true
-            onStreamFinished: root._connectStderr = String(text || "")
+        stderr: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._connectErrCapture, data)) return;
+                if (BoundedOutput.isOverflow(root._connectErrCapture) && connectProc.running) connectProc.running = false;
+            }
         }
 
         onExited: function(exitCode, exitStatus) {
-            var out = String(root._connectStdout || connectStdout.text || "");
-            var err = String(root._connectStderr || connectStderr.text || "");
+            if (BoundedOutput.isOverflow(root._connectOutCapture) || BoundedOutput.isOverflow(root._connectErrCapture)) {
+                root.state = "error";
+                root.errorMessage = "ADB returned an unexpectedly large response.";
+                return;
+            }
+
+            var out = BoundedOutput.value(root._connectOutCapture);
+            var err = BoundedOutput.value(root._connectErrCapture);
             var result = WirelessCommand.classifyConnectResult(exitCode, out, err);
 
             if (!result.ok) {

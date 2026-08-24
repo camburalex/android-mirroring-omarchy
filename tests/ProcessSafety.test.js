@@ -53,6 +53,12 @@ function run() {
     // 5. Device discovery already has a FailedToStart fallback.
     assert.ok(deviceManager.indexOf("onRunningChanged") >= 0, "DeviceManager has runningChanged fallback");
 
+    // 6. No unbounded full-stream StdioCollector capture remains on ADB or
+    //    mktemp paths; all production streams now use bounded SplitParser.
+    for (const file of [deviceManager, wirelessManager, recordingManager]) {
+        assertNotContains(file, "StdioCollector", "no unbounded StdioCollector");
+    }
+
     console.log("All ProcessSafety fixtures passed.");
 }
 
