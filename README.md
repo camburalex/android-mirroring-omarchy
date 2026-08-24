@@ -1,5 +1,10 @@
 # Android Mirroring — Omarchy plugin v0.1
 
+![Screenshot_Tiktok](docs/screenshots/Screenshot_Tiktok.png)
+![Screenshot_Rotated](docs/screenshots/Screenshot_Rotated.png)
+![Screenshot_Revolut](docs/screenshots/Screenshot_Revolut.png)
+![Screenshot_App](docs/screenshots/Screenshot_App.png)
+
 A third-party [Omarchy](https://omarchy.org/) Quattro plugin that adds an
 Android device mirroring widget to the Omarchy shell. It discovers Android
 phones and tablets over USB or Android 11+ Wireless Debugging and launches the
