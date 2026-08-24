@@ -58,7 +58,8 @@ omarchy pkg add scrcpy android-tools
 ```
 
 - `scrcpy` is the upstream mirroring engine.
-- `android-tools` provides the ADB client.
+- `android-tools` provides the ADB client. The `scrcpy` package depends on
+  `android-tools`, but listing both keeps the setup explicit.
 
 These are ordinary system packages. The plugin does **not** install them
 automatically, and the plugin should not be run as root.
@@ -204,6 +205,9 @@ Important notes:
   use a wireless mirroring session. It may be turned off between sessions and
   must be re-enabled before reconnecting.
 - QR pairing is not supported in v0.1.
+- Wireless liveness detection and the final M6 release validation were performed
+  with IPv4-style ADB endpoints. IPv6 wireless endpoints are not guaranteed in
+  v0.1.
 
 ## Usage
 
@@ -276,7 +280,7 @@ delete this file to remove all saved wireless history.
 | Symptom | Likely cause and fix |
 |---------|----------------------|
 | "scrcpy not found" or `scrcpy` missing | Run `omarchy pkg add scrcpy android-tools` and restart the shell. |
-| `adb devices -l` not found | `android-tools` is missing or not on PATH. Install with `omarchy pkg add android-tools`. |
+| `adb devices -l` not found | `android-tools` is missing or not on PATH. Install with `omarchy pkg add scrcpy android-tools`. |
 | Device shows **Authorization required** | Accept the USB debugging prompt on the phone. Re-plug the cable and press Refresh if needed. |
 | No devices detected | Enable USB debugging or Wireless Debugging. Check the cable. Run `adb devices -l` directly. |
 | Wireless pairing fails | The pairing popup expired (reopen it), the address or code is wrong, or the phone and computer are not on the same network. |
@@ -342,10 +346,13 @@ plugin builds a safe `scrcpy` argv, launches it as a tracked Quickshell
 
 ## Attribution
 
-This plugin invokes the upstream [scrcpy](https://github.com/Genymobile/scrcpy)
-project as a separate system binary. scrcpy is developed by Genymobile,
-Romain Vimont, and contributors and is licensed under the Apache License 2.0.
-It is installed separately and is not bundled with this plugin.
+Created and maintained by [@camburalex](https://github.com/camburalex).
+
+This plugin is an independent Omarchy integration and is **not** a fork or
+reimplementation of [scrcpy](https://github.com/Genymobile/scrcpy). scrcpy is
+developed by Genymobile, Romain Vimont, and contributors and is licensed under
+the Apache License 2.0. It is installed separately and is the upstream external
+mirroring backend.
 
 ## License
 

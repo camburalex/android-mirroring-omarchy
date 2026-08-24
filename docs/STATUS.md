@@ -170,23 +170,54 @@
 - M5 is PASS.
 - Stable v0.1 product name: Android Mirroring
 - Stable v0.1 plugin id: dev.android-mirroring
-- M6 is ACTIVE.
-- M6-T1 release packaging and documentation is statically complete on this
-  branch. The public README, LICENSE, manifest release metadata, release
-  checklist, and install/remove/Hyprland documentation have been prepared.
-- M6-T2 source-level security/process/resource audit complete:
-  - confirmed no shell-string construction, no persisted pairing codes, no
-    global `pkill`/`killall`/`startDetached`, no runtime privilege escalation;
-  - added `_exitedHandled` and `onRunningChanged` safety nets to
-    `qml/ScrcpyBackend.qml` and `qml/WirelessManager.qml` because installed
-    Quickshell source shows `Process::onErrorOccurred(FailedToStart)` does not
-    emit `onExited`, which would otherwise leave a starting session and any
-    reserved recording placeholder stuck;
-  - all automated tests pass (seven suites, including the new
-    `tests/ProcessSafety.test.js` source-audit suite);
-  - `omarchy plugin validate .`, `git diff --check`, and
-    `omarchy-shell shell ping/listPlugins/debugBarGeometry` pass after
-    restart.
-- M6-T3 clean install/uninstall/fresh-install and final hardware release
-  validation gates remain pending (phone unplug, Wi-Fi loss, shell restart
-  during active session, scrcpy crash, fresh install/uninstall).
+- M6: PASS.
+- M6-T2 — final security/process/resource source audit: PASS.
+  - Command/process ownership reviewed; only plugin-owned scrcpy/ADB processes
+    are stopped.
+  - Pairing-code handling reviewed: the six-digit code is written to ADB stdin
+    and is never persisted, normally logged, or placed in argv.
+  - Recording cleanup reviewed: reserved recording placeholders are discarded
+    when scrcpy fails to start.
+  - ADB and scrcpy command construction remains argv-based; user-controlled
+    endpoint data is not interpolated into executable shell text. The wireless
+    `health-check` probe uses a constant shell fragment with endpoint values
+    passed as positional parameters. No global `pkill`/`killall`/`startDetached`
+    and no runtime privilege escalation.
+  - All seven automated test suites pass and `omarchy plugin validate .` passes.
+- M6-T2B — native phone bar icon: PASS. Human verified clicking the icon opens
+  the panel.
+- M6-T3A — native remove/install/enable/clean reinstall: PASS. The plugin
+  loads, the shell restarts cleanly, `hyprctl configerrors` is empty, and the
+  bar widget is present.
+- M6-T3B — hardware release/recovery validation: PASS after the f968459
+  wireless-loss blocker fix.
+  - USB unplug cleanup and USB reconnect/relaunch: PASS.
+  - Wireless Wi-Fi-loss cleanup and wireless reconnect/relaunch: PASS.
+  - Exact owned-scrcpy termination recovery: PASS.
+  - Shell restart during active session: PASS.
+  - No orphaned owned scrcpy/health-check processes: PASS.
+- M6-T3C — final release-candidate verification at f968459: PASS after native
+  reinstall.
+  - `omarchy plugin validate .` passes.
+  - All seven automated test suites pass.
+  - `qml/health-check.sh` syntax passes.
+  - Installed clone full HEAD exactly equals development HEAD (f968459).
+  - Cold shell restart passes; `omarchy-shell shell ping` passes.
+  - Plugin is enabled and the phone bar widget is present; the panel opens.
+  - `hyprctl configerrors` is empty.
+  - Normal USB launch/input/stop and normal wireless launch/input/stop pass on
+    hardware.
+  - Wireless `health-check` exists only for an active wireless session and exits
+    when the session ends.
+  - Numeric endpoint/port entry works normally.
+  - No plugin-owned process remains after stop/uninstall.
+- No required P0 hardware or release-gate tests remain pending.
+- Known limitations for v0.1:
+  - Wireless liveness/health-check and final M6 validation targeted IPv4-style
+    ADB endpoints; IPv6 wireless endpoints are not guaranteed.
+  - QR-code wireless pairing is not supported.
+  - Plugin-owned scrcpy is forced through the SDL X11 backend (XWayland) on the
+    verified Omarchy target because native Wayland did not reliably resize the
+    outer floating window on device rotation.
+  - Geometry, always-on-top, and keybindings are intentionally not persisted.
+- Next action: supervisor final release/tag decision (expected tag: `v0.1.0`).

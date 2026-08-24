@@ -1,51 +1,53 @@
 # Release Checklist — v0.1
 
 This checklist tracks the remaining gates before the v0.1 public release.
-Items marked `[ ]` are intentionally unchecked until final release validation.
+Items marked `[x]` are evidenced from M6 validation. Items under **Publication**
+remain `[ ]` because they are the final release steps themselves (public
+repository, tag, marketplace submission).
 
 ## Pre-release documentation
 
-- [ ] README is complete and accurate.
-- [ ] LICENSE (MIT) is present and clearly applies to the plugin's own code.
-- [ ] scrcpy attribution and Apache-2.0 notice are present.
-- [ ] `manifest.json` release metadata is correct.
-- [ ] Install, update, remove, and dependency instructions match the
+- [x] README is complete and accurate.
+- [x] LICENSE (MIT) is present and clearly applies to the plugin's own code.
+- [x] scrcpy attribution and Apache-2.0 notice are present.
+- [x] `manifest.json` release metadata is correct.
+- [x] Install, update, remove, and dependency instructions match the
   installed Omarchy CLI.
-- [ ] Hyprland integration is documented non-destructively.
+- [x] Hyprland integration is documented non-destructively.
 
 ## Security and correctness
 
-- [ ] Security audit (no persisted pairing codes, no root recommendations,
+- [x] Security audit (no persisted pairing codes, no root recommendations,
   no `pkill scrcpy`, no destructive config edits).
-- [ ] Resource cleanup (only plugin-owned ADB/scrcpy processes are stopped,
+- [x] Resource cleanup (only plugin-owned ADB/scrcpy processes are stopped,
   recording placeholders are discarded on failure, state file is safe).
 
 ## Validation
 
-- [ ] `git diff --check` passes.
-- [ ] `omarchy plugin validate .` passes.
-- [ ] Full automated test suite passes.
-- [ ] `omarchy-shell shell ping` succeeds after install.
-- [ ] `omarchy-shell shell listPlugins` shows `dev.android-mirroring` enabled.
-- [ ] `hyprctl configerrors` reports no errors after Hyprland reload.
+- [x] `git diff --check` passes.
+- [x] `omarchy plugin validate .` passes.
+- [x] Full automated test suite passes.
+- [x] `omarchy-shell shell ping` succeeds after install.
+- [x] `omarchy-shell shell listPlugins` shows `dev.android-mirroring` enabled.
+- [x] `hyprctl configerrors` reports no errors after Hyprland reload.
 
-## Fresh install / uninstall
+## Install / uninstall
 
-- [ ] Fresh install on a clean Omarchy target succeeds.
-- [ ] `omarchy plugin remove dev.android-mirroring` succeeds.
-- [ ] Uninstall leaves user Hyprland config intact (guard block is inert).
-- [ ] Saved device state behavior is documented and behaves as documented.
+- [x] Native remove/reinstall on the verified Omarchy target succeeds.
+- [x] `omarchy plugin remove dev.android-mirroring` succeeds.
+- [x] Uninstall leaves user Hyprland config intact (guard block is inert).
+- [x] Saved device state behavior is documented and behaves as documented.
 
 ## Regression
 
-- [ ] USB discovery, mirroring, and control (Mirror/Stop) regression.
-- [ ] Android 11+ wireless pairing, mirroring, and control (Mirror/Stop)
+- [x] USB discovery, mirroring, and control (Mirror/Stop) regression.
+- [x] Android 11+ wireless pairing, mirroring, and control (Mirror/Stop)
   regression.
-- [ ] Preset selection (Performance, Balanced, Quality).
-- [ ] Audio On/Off.
-- [ ] Screen off On/Off.
-- [ ] Recording On/Off and output path behavior.
-- [ ] Hyprland validation (panel tokens, phone window border, rotation under
+- [x] Preset selection (Performance, Balanced, Quality).
+- [x] Audio On/Off.
+- [x] Screen off On/Off.
+- [x] Recording On/Off and output path behavior.
+- [x] Hyprland validation (panel tokens, phone window border, rotation under
   XWayland, `hyprctl configerrors` reports no errors).
 
 ## Publication
@@ -68,13 +70,14 @@ Items marked `[ ]` are intentionally unchecked until final release validation.
 ## M6-T2 — security/process/resource audit
 
 - [x] Source-level security audit complete.
-- [x] No shell-string construction or user-controlled shell interpolation.
+- [x] No user-controlled shell interpolation; ADB/scrcpy launches remain argv-based.
+  The wireless health probe uses a constant shell fragment with endpoint values passed as positional arguments.
 - [x] Pairing code stays stdin-only, never persisted or normally logged.
 - [x] `Stop` only terminates the tracked plugin-owned scrcpy process.
 - [x] Recording path cannot escape `Videos/Android Mirroring` root.
 - [x] Reserved recording placeholder is discarded when scrcpy fails to start.
 - [x] Saved-device state uses atomic writes and an allow-listed schema.
 - [x] All automated tests pass; `omarchy plugin validate .` passes.
-- [ ] Physical resource cleanup (phone unplug, Wi-Fi loss, shell restart during
-  active session, scrcpy crash) — requires M6-T3 hardware validation.
-- [ ] Clean install / uninstall / final release matrix — requires M6-T3.
+- [x] Physical resource cleanup (phone unplug, Wi-Fi loss, shell restart during
+  active session, scrcpy crash) — M6-T3 hardware validation passed.
+- [x] Native remove/reinstall / final release matrix — M6-T3 passed.
