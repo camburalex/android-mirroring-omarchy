@@ -52,8 +52,8 @@ repository, tag, marketplace submission).
 
 ## Publication
 
-- [ ] Public GitHub repository is published and accessible.
-- [ ] v0.1.0 tag is created.
+- [x] Public GitHub repository is published and accessible.
+- [x] v0.1.0 tag is created.
 - [ ] omarchyplugins.com submission readiness is confirmed.
 
 ## Notes

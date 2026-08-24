@@ -220,4 +220,4 @@
     verified Omarchy target because native Wayland did not reliably resize the
     outer floating window on device rotation.
   - Geometry, always-on-top, and keybindings are intentionally not persisted.
-- Next action: supervisor final release/tag decision (expected tag: `v0.1.0`).
+- Next action: publish the v0.1.1 security patch and provide the new exact SHA to the Omarchy marketplace reviewer.
