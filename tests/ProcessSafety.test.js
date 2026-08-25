@@ -17,6 +17,22 @@ function assertNotContains(haystack, needle, message) {
     );
 }
 
+function extractBlock(source, id) {
+    const idIdx = source.indexOf("id: " + id);
+    if (idIdx < 0) return "";
+    const openIdx = source.lastIndexOf("{", idIdx);
+    let depth = 0;
+    for (let i = openIdx; i < source.length; i++) {
+        const c = source[i];
+        if (c === "{") depth++;
+        else if (c === "}") {
+            depth--;
+            if (depth === 0) return source.substring(openIdx, i + 1);
+        }
+    }
+    return "";
+}
+
 function run() {
     const scrcpyBackend = readQml("ScrcpyBackend.qml");
     const wirelessManager = readQml("WirelessManager.qml");
@@ -58,6 +74,19 @@ function run() {
     for (const file of [deviceManager, wirelessManager, recordingManager]) {
         assertNotContains(file, "StdioCollector", "no unbounded StdioCollector");
     }
+
+    // 7. ScrcpyBackend's long-running scrcpy streams do not use a newline
+    //    SplitParser, so an unterminated record cannot grow inside Quickshell
+    //    before the plugin's bounded diagnostic handler runs.
+    const scrcpyProc = extractBlock(scrcpyBackend, "scrcpyProc");
+    assert.ok(scrcpyProc.indexOf("id: scrcpyProc") >= 0, "scrcpyProc block found");
+    assert.ok(scrcpyProc.indexOf('stdout: SplitParser') >= 0, "scrcpy stdout is a SplitParser");
+    assert.ok(scrcpyProc.indexOf('stderr: SplitParser') >= 0, "scrcpy stderr is a SplitParser");
+    assert.ok(scrcpyProc.indexOf('splitMarker: ""') >= 0, "scrcpy streams use chunk-mode splitMarker");
+    assertNotContains(scrcpyProc, 'splitMarker: "\\n"', "scrcpy streams do not use newline splitMarker");
+    assertNotContains(scrcpyProc, 'splitMarker: "\\r\\n"', "scrcpy streams do not use CRLF splitMarker");
+    assert.ok(scrcpyBackend.indexOf("ScrcpyDiagnostics") >= 0, "ScrcpyBackend uses a bounded diagnostic helper");
+    assert.ok(scrcpyBackend.indexOf("_appendDiagnosticChunk") >= 0, "ScrcpyBackend has a chunk diagnostic handler");
 
     console.log("All ProcessSafety fixtures passed.");
 }
