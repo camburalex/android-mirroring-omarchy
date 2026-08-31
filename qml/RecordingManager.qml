@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Io
 import QtCore
 import "RecordingPath.js" as RecordingPath
+import "BoundedOutput.js" as BoundedOutput
 
 // Asynchronous recording-path preparation for ScrcpyBackend.
 // Resolves a standard user Videos/Movies location, creates the product
@@ -21,6 +22,7 @@ Scope {
     property string _recordingDirectory: ""
     property string _reservedPath: ""
     property string _mktempOutput: ""
+    property var _mktempCapture: null
     property bool _mktempExited: false
     property int _mktempExitCode: 0
     property int _mktempExitStatus: 0
@@ -189,18 +191,19 @@ Scope {
         var mktempCmd = RecordingPath.buildMktempCommand(root._recordingDirectory, now);
         mktempProc.command = mktempCmd.argv;
         root._mktempOutput = "";
+        root._mktempCapture = BoundedOutput.create();
         root._mktempExited = false;
         mktempProc.running = true;
     }
 
-    function _onMktempStdout(text) {
+    function _onMktempChunk(data) {
         if (!root.busy) return;
 
-        var line = String(text || "").replace(/\r?\n$/, "");
-        if (line === "") return;
+        if (BoundedOutput.append(root._mktempCapture, data)) return;
 
-        root._mktempOutput = line;
-        root._attemptMktempFinalize();
+        if (BoundedOutput.isOverflow(root._mktempCapture) && mktempProc.running) {
+            mktempProc.running = false;
+        }
     }
 
     function _onMktempExited(exitCode, exitStatus) {
@@ -210,8 +213,14 @@ Scope {
         root._mktempExitCode = exitCode;
         root._mktempExitStatus = exitStatus;
 
-        if (root._mktempOutput === "" && mktempStdout.text) {
-            root._mktempOutput = String(mktempStdout.text).replace(/\r?\n$/, "");
+        if (BoundedOutput.isOverflow(root._mktempCapture)) {
+            root._finishFailed("Could not create a recording file.");
+            return;
+        }
+
+        if (root._mktempOutput === "") {
+            var text = BoundedOutput.value(root._mktempCapture);
+            root._mktempOutput = String(text || "").replace(/\r?\n$/, "");
         }
 
         root._attemptMktempFinalize();
@@ -264,10 +273,9 @@ Scope {
         running: false
         command: []
 
-        stdout: StdioCollector {
-            id: mktempStdout
-            waitForEnd: true
-            onStreamFinished: root._onMktempStdout(mktempStdout.text)
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) { root._onMktempChunk(data) }
         }
 
         onExited: function(exitCode, exitStatus) { root._onMktempExited(exitCode, exitStatus) }

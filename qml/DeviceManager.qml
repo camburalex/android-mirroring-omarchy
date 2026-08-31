@@ -3,6 +3,8 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import "AdbParser.js" as AdbParser
+import "BoundedOutput.js" as BoundedOutput
+import "AdbOperation.js" as AdbOperation
 
 // Scope exposes `children` as its default property and is intended for
 // nonvisual Quickshell objects. QtObject does not provide a default data
@@ -27,13 +29,11 @@ Scope {
     property string _stdoutText: ""
     property string _stderrText: ""
 
-    // Run-coordination state. A discovery result is only finalized once the
-    // relevant process has exited and the complete stdout for that run is
-    // available, regardless of signal ordering.
-    property bool _runStdoutComplete: false
-    property bool _runStderrComplete: false
-    property bool _runProcessComplete: false
-    property bool _runFinalized: false
+    property var _stdoutCapture: null
+    property var _stderrCapture: null
+
+    property var _runCtx: null
+    property int _runGen: 0
     property int _runExitCode: 0
 
     signal refreshCompleted(bool success)
@@ -63,8 +63,109 @@ Scope {
         root.devices = AdbParser.parseDevices(root._stdoutText, root._buildWirelessContext())
     }
 
+    function _resetRunState() {
+        root._runCtx = null
+        root._runGen = 0
+        root._runExitCode = 0
+    }
+
+    function _stopDiscoveryTimers() {
+        discoveryDeadlineTimer.stop()
+        discoveryKillTimer.stop()
+    }
+
+    function _onDiscoveryTimeout(gen) {
+        if (!AdbOperation.isActive(root._runCtx)) return
+        if (root._runCtx.gen !== gen) return
+        if (!AdbOperation.markTimeout(root._runCtx, gen)) return
+
+        if (adbProc.running) {
+            adbProc.running = false
+            discoveryKillTimer.gen = gen
+            discoveryKillTimer.start()
+        }
+    }
+
+    function _onDiscoveryKill(gen) {
+        if (!AdbOperation.isActive(root._runCtx)) return
+        if (root._runCtx.gen !== gen) return
+        if (adbProc.running) {
+            adbProc.signal(9)
+            AdbOperation.markKillSent(root._runCtx, gen)
+        }
+    }
+
+    function _onDiscoveryExited(exitCode, exitStatus) {
+        if (!root._runCtx) return
+        if (!AdbOperation.markExited(root._runCtx, root._runGen)) return
+        root._runExitCode = exitCode
+        root._attemptFinalize()
+    }
+
+    function _onDiscoveryRunningChanged() {
+        if (adbProc.running || !root._runCtx) return
+        if (AdbOperation.isFinalized(root._runCtx)) return
+        if (!root._runCtx.exited) {
+            if (!AdbOperation.markExited(root._runCtx, root._runGen)) return
+            root._runExitCode = 1
+        }
+        root._attemptFinalize()
+    }
+
+    function _attemptFinalize() {
+        if (!AdbOperation.canFinalize(root._runCtx, root._runGen)) return
+
+        AdbOperation.finalize(root._runCtx, root._runGen)
+        root.busy = false
+        root._stopDiscoveryTimers()
+
+        if (root._runCtx.overflow
+            || BoundedOutput.isOverflow(root._stdoutCapture)
+            || BoundedOutput.isOverflow(root._stderrCapture)) {
+            console.warn("adb devices -l produced excessive output")
+            root.error = "ADB returned an unexpectedly large response."
+            root._stdoutText = ""
+            root.devices = []
+            root.refreshCompleted(false)
+            return
+        }
+
+        if (root._runCtx.timedOut) {
+            root.error = AdbOperation.terminalErrorMessage(root._runCtx)
+            root._stdoutText = ""
+            root.devices = []
+            root.refreshCompleted(false)
+            return
+        }
+
+        if (root._runExitCode !== 0) {
+            var err = String(BoundedOutput.value(root._stderrCapture) || "").trim()
+            if (err) console.warn("adb devices -l failed:", root._runExitCode, err)
+            root.error = "ADB discovery failed."
+            root.devices = []
+            root.refreshCompleted(false)
+            return
+        }
+
+        var out = String(BoundedOutput.value(root._stdoutCapture) || "")
+        root._stdoutText = out
+        root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
+        root.refreshCompleted(true)
+    }
+
     function refresh() {
         if (root.busy) return
+
+        root._resetRunState()
+
+        var ctx = AdbOperation.createContext(
+            AdbOperation.DEVICE_DISCOVERY_TIMEOUT_MS,
+            AdbOperation.SIGTERM_GRACE_MS,
+            "device"
+        )
+        var gen = AdbOperation.start(ctx)
+        root._runCtx = ctx
+        root._runGen = gen
 
         root.busy = true
         root.error = ""
@@ -73,41 +174,18 @@ Scope {
         // when the current run finalizes.
         root._stdoutText = ""
         root._stderrText = ""
-        root._runStdoutComplete = false
-        root._runStderrComplete = false
-        root._runProcessComplete = false
-        root._runFinalized = false
+        root._stdoutCapture = BoundedOutput.create()
+        root._stderrCapture = BoundedOutput.create()
 
-        // A normal tracked Process is used with `running = true`; busy gating
-        // above prevents overlapping discovery runs rather than interrupting
-        // an active query.
         adbProc.command = ["adb", "devices", "-l"]
         adbProc.running = true
+
+        discoveryDeadlineTimer.gen = gen
+        discoveryDeadlineTimer.start()
     }
 
     function stateText(device) {
         return AdbParser.stateText(device.rawState, device.connection)
-    }
-
-    function _attemptFinalize() {
-        if (root._runFinalized) return
-        if (!root._runProcessComplete || !root._runStdoutComplete) return
-
-        root._runFinalized = true
-        root.busy = false
-
-        if (root._runExitCode !== 0) {
-            var err = String(root._stderrText || "").trim()
-            if (err) console.warn("adb devices -l failed:", root._runExitCode, err)
-            root.error = "ADB discovery failed."
-            root.devices = []
-            root.refreshCompleted(false)
-            return
-        }
-
-        var out = String(root._stdoutText || "")
-        root.devices = AdbParser.parseDevices(out, root._buildWirelessContext())
-        root.refreshCompleted(true)
     }
 
     Process {
@@ -115,43 +193,58 @@ Scope {
 
         command: ["adb", "devices", "-l"]
 
-        stdout: StdioCollector {
-            id: adbStdout
-            waitForEnd: true
-            onStreamFinished: {
-                root._stdoutText = String(text || "")
-                root._runStdoutComplete = true
-                root._attemptFinalize()
+        stdout: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._stdoutCapture, data)) return;
+                if (AdbOperation.markOverflow(root._runCtx, root._runGen)) {
+                    discoveryDeadlineTimer.stop()
+                    if (adbProc.running) {
+                        adbProc.running = false
+                        discoveryKillTimer.gen = root._runGen
+                        discoveryKillTimer.start()
+                    }
+                }
             }
         }
 
-        stderr: StdioCollector {
-            id: adbStderr
-            waitForEnd: true
-            onStreamFinished: {
-                root._stderrText = String(text || "")
-                root._runStderrComplete = true
-                root._attemptFinalize()
+        stderr: SplitParser {
+            splitMarker: ""
+            onRead: function(data) {
+                if (BoundedOutput.append(root._stderrCapture, data)) return;
+                if (AdbOperation.markOverflow(root._runCtx, root._runGen)) {
+                    discoveryDeadlineTimer.stop()
+                    if (adbProc.running) {
+                        adbProc.running = false
+                        discoveryKillTimer.gen = root._runGen
+                        discoveryKillTimer.start()
+                    }
+                }
             }
         }
 
         onExited: function(exitCode, exitStatus) {
-            root._runExitCode = exitCode
-            root._runProcessComplete = true
-            root._attemptFinalize()
+            root._onDiscoveryExited(exitCode, exitStatus)
         }
 
         onRunningChanged: {
-            // If the process stopped without the normal exited/stdout path
-            // finalizing the run (e.g. FailedToStart), make sure busy is not
-            // left stuck and report a failure.
-            if (!running && !root._runFinalized && !root._runProcessComplete) {
-                root._runFinalized = true
-                root.busy = false
-                root.error = "ADB discovery failed."
-                root.devices = []
-                root.refreshCompleted(false)
-            }
+            root._onDiscoveryRunningChanged()
         }
+    }
+
+    Timer {
+        id: discoveryDeadlineTimer
+        interval: AdbOperation.DEVICE_DISCOVERY_TIMEOUT_MS
+        repeat: false
+        property int gen: 0
+        onTriggered: root._onDiscoveryTimeout(gen)
+    }
+
+    Timer {
+        id: discoveryKillTimer
+        interval: AdbOperation.SIGTERM_GRACE_MS
+        repeat: false
+        property int gen: 0
+        onTriggered: root._onDiscoveryKill(gen)
     }
 }

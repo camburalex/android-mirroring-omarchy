@@ -17,13 +17,47 @@ function assertNotContains(haystack, needle, message) {
     );
 }
 
+function extractBlock(source, id) {
+    const idIdx = source.indexOf("id: " + id);
+    if (idIdx < 0) return "";
+    const openIdx = source.lastIndexOf("{", idIdx);
+    let depth = 0;
+    for (let i = openIdx; i < source.length; i++) {
+        const c = source[i];
+        if (c === "{") depth++;
+        else if (c === "}") {
+            depth--;
+            if (depth === 0) return source.substring(openIdx, i + 1);
+        }
+    }
+    return "";
+}
+
+function extractFunction(source, name) {
+    const start = source.indexOf("function " + name);
+    if (start < 0) return "";
+    const openIdx = source.indexOf("{", start);
+    if (openIdx < 0) return "";
+    let depth = 0;
+    for (let i = openIdx; i < source.length; i++) {
+        const c = source[i];
+        if (c === "{") depth++;
+        else if (c === "}") {
+            depth--;
+            if (depth === 0) return source.substring(openIdx, i + 1);
+        }
+    }
+    return "";
+}
+
 function run() {
     const scrcpyBackend = readQml("ScrcpyBackend.qml");
     const wirelessManager = readQml("WirelessManager.qml");
     const recordingManager = readQml("RecordingManager.qml");
     const deviceManager = readQml("DeviceManager.qml");
 
-    // 1. No global process management or shell-string construction.
+    // 1. No global process management or shell-string construction, and no
+    //    `timeout` shell wrapper for the short-lived ADB operations.
     for (const file of [scrcpyBackend, wirelessManager, recordingManager, deviceManager]) {
         assertNotContains(file, "pkill", "no global pkill");
         assertNotContains(file, "killall", "no global killall");
@@ -35,6 +69,10 @@ function run() {
         assertNotContains(file, "doas", "no doas");
         assertNotContains(file, "sh -c", "no sh -c shell string");
         assertNotContains(file, "bash -c", "no bash -c shell string");
+    }
+    for (const file of [deviceManager, wirelessManager]) {
+        assertNotContains(file, 'command: ["timeout"', "no timeout utility as process command");
+        assertNotContains(file, '"timeout",', "no timeout utility as argv element");
     }
 
     // 2. ScrcpyBackend has a safety net for FailedToStart (Quickshell does not
@@ -52,6 +90,54 @@ function run() {
 
     // 5. Device discovery already has a FailedToStart fallback.
     assert.ok(deviceManager.indexOf("onRunningChanged") >= 0, "DeviceManager has runningChanged fallback");
+
+    // 6. No unbounded full-stream StdioCollector capture remains on ADB or
+    //    mktemp paths; all production streams now use bounded SplitParser.
+    for (const file of [deviceManager, wirelessManager, recordingManager]) {
+        assertNotContains(file, "StdioCollector", "no unbounded StdioCollector");
+    }
+
+    // 7. ScrcpyBackend's long-running scrcpy streams do not use a newline
+    //    SplitParser, so an unterminated record cannot grow inside Quickshell
+    //    before the plugin's bounded diagnostic handler runs.
+    const scrcpyProc = extractBlock(scrcpyBackend, "scrcpyProc");
+    assert.ok(scrcpyProc.indexOf("id: scrcpyProc") >= 0, "scrcpyProc block found");
+    assert.ok(scrcpyProc.indexOf('stdout: SplitParser') >= 0, "scrcpy stdout is a SplitParser");
+    assert.ok(scrcpyProc.indexOf('stderr: SplitParser') >= 0, "scrcpy stderr is a SplitParser");
+    assert.ok(scrcpyProc.indexOf('splitMarker: ""') >= 0, "scrcpy streams use chunk-mode splitMarker");
+    assertNotContains(scrcpyProc, 'splitMarker: "\\n"', "scrcpy streams do not use newline splitMarker");
+    assertNotContains(scrcpyProc, 'splitMarker: "\\r\\n"', "scrcpy streams do not use CRLF splitMarker");
+    assert.ok(scrcpyBackend.indexOf("ScrcpyDiagnostics") >= 0, "ScrcpyBackend uses a bounded diagnostic helper");
+    assert.ok(scrcpyBackend.indexOf("_appendDiagnosticChunk") >= 0, "ScrcpyBackend has a chunk diagnostic handler");
+
+    // 8. Short-lived ADB processes have finite deadlines with a generation token.
+    assert.ok(deviceManager.indexOf("AdbOperation.DEVICE_DISCOVERY_TIMEOUT_MS") >= 0,
+        "DeviceManager uses the shared discovery deadline constant");
+    assert.ok(deviceManager.indexOf("property int gen") >= 0,
+        "DeviceManager deadline/kill timers carry a generation token");
+    assert.ok(deviceManager.indexOf("adbProc.signal(9)") >= 0,
+        "DeviceManager can force-kill a stalled discovery child");
+
+    // 9. Wireless pair/connect have finite deadlines, escalation, and generation tokens.
+    assert.ok(wirelessManager.indexOf("AdbOperation.PAIR_TIMEOUT_MS") >= 0,
+        "WirelessManager uses the shared pair deadline constant");
+    assert.ok(wirelessManager.indexOf("AdbOperation.CONNECT_TIMEOUT_MS") >= 0,
+        "WirelessManager uses the shared connect deadline constant");
+    assert.ok(wirelessManager.indexOf("pairProc.signal(9)") >= 0,
+        "WirelessManager can force-kill a stalled pair child");
+    assert.ok(wirelessManager.indexOf("connectProc.signal(9)") >= 0,
+        "WirelessManager can force-kill a stalled connect child");
+
+    // 10. Pair timeout clears the in-memory pairing code.
+    const pairTimeoutBlock = extractFunction(wirelessManager, "_onPairTimeout");
+    assert.ok(pairTimeoutBlock.indexOf("_clearPairingCode()") >= 0,
+        "pair timeout clears the pairing code");
+
+    // 11. Device and wireless managers import the shared ADB operation state machine.
+    assert.ok(deviceManager.indexOf('import "AdbOperation.js" as AdbOperation') >= 0,
+        "DeviceManager imports the ADB operation state machine");
+    assert.ok(wirelessManager.indexOf('import "AdbOperation.js" as AdbOperation') >= 0,
+        "WirelessManager imports the ADB operation state machine");
 
     console.log("All ProcessSafety fixtures passed.");
 }
