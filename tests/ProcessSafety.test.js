@@ -55,10 +55,11 @@ function run() {
     const wirelessManager = readQml("WirelessManager.qml");
     const recordingManager = readQml("RecordingManager.qml");
     const deviceManager = readQml("DeviceManager.qml");
+    const qrPairingManager = readQml("QrPairingManager.qml");
 
     // 1. No global process management or shell-string construction, and no
     //    `timeout` shell wrapper for the short-lived ADB operations.
-    for (const file of [scrcpyBackend, wirelessManager, recordingManager, deviceManager]) {
+    for (const file of [scrcpyBackend, wirelessManager, recordingManager, deviceManager, qrPairingManager]) {
         assertNotContains(file, "pkill", "no global pkill");
         assertNotContains(file, "killall", "no global killall");
         assertNotContains(file, "startDetached", "no detached processes");
@@ -138,6 +139,55 @@ function run() {
         "DeviceManager imports the ADB operation state machine");
     assert.ok(wirelessManager.indexOf('import "AdbOperation.js" as AdbOperation') >= 0,
         "WirelessManager imports the ADB operation state machine");
+
+    // 12. QR pairing: every process has a FailedToStart fallback, streams are
+    //     bounded chunk-mode SplitParsers, and commands come from the tested
+    //     argv builders rather than inline strings.
+    for (const id of ["randomProc", "qrProc", "pairBrowseProc", "connectBrowseProc"]) {
+        const block = extractBlock(qrPairingManager, id);
+        assert.ok(block.indexOf("id: " + id) >= 0, id + " block found");
+        assert.ok(block.indexOf("onRunningChanged") >= 0, id + " has runningChanged fallback");
+        assert.ok(block.indexOf("stdout: SplitParser") >= 0, id + " stdout is a SplitParser");
+        assert.ok(block.indexOf('splitMarker: ""') >= 0, id + " uses chunk-mode splitMarker");
+        assert.ok(block.indexOf("stderr: SplitParser") >= 0, id + " stderr is an explicit SplitParser");
+        assert.strictEqual(block.split('splitMarker: ""').length - 1, 2, id + " uses chunk mode on both streams");
+        assert.ok(block.indexOf("command: []") >= 0, id + " has no inline command");
+        assert.ok(qrPairingManager.indexOf(id + ".signal(9)") >= 0, id + " can be force-killed");
+    }
+    assertNotContains(qrPairingManager, "StdioCollector", "no unbounded StdioCollector");
+    assertNotContains(qrPairingManager, 'splitMarker: "\\n"', "QR pairing streams do not use newline splitMarker");
+    assert.ok(qrPairingManager.indexOf("QrPairing.pushChunk") >= 0, "browse output goes through bounded line assembly");
+    for (const fn of ["_onPairBrowseData", "_onConnectBrowseData"]) {
+        assert.ok(extractFunction(qrPairingManager, fn).indexOf("QrPairing.isOverBudget") >= 0,
+            fn + " enforces the whole-run output budget");
+    }
+    for (const id of ["randomProc", "qrProc"]) {
+        const block = extractBlock(qrPairingManager, id);
+        assert.ok(block.indexOf("BoundedOutput.append") >= 0, id + " output is a bounded capture");
+        assert.ok(block.indexOf("_onPrepareOverflow()") >= 0, id + " overflow ends the run immediately");
+    }
+    assert.ok(extractFunction(qrPairingManager, "_fail").indexOf("_reset()") >= 0, "every failure stops the session's processes");
+    for (const id of ["randomProc", "qrProc", "pairBrowseProc", "connectBrowseProc"]) {
+        assert.ok(extractFunction(qrPairingManager, "_reset").indexOf("_stop(" + id + ")") >= 0,
+            "session reset stops " + id);
+    }
+    assert.ok(extractFunction(qrPairingManager, "_stop").indexOf("killTimer.restart()") >= 0,
+        "every stop request arms the SIGKILL escalation");
+    assert.ok(qrPairingManager.indexOf("QrPairing.PREPARE_TIMEOUT_MS") >= 0, "QR generation has a finite deadline");
+    assert.ok(qrPairingManager.indexOf("QrPairing.SCAN_TIMEOUT_MS") >= 0, "QR scan wait has a finite deadline");
+    assert.ok(qrPairingManager.indexOf("QrPairing.LOCATE_TIMEOUT_MS") >= 0, "endpoint lookup has a finite deadline");
+
+    // 13. The QR pairing password reaches qrencode and adb through stdin only,
+    //     is never logged, and is cleared when the session resets.
+    assertNotContains(qrPairingManager, "console.", "QR pairing manager does not log");
+    assert.ok(extractBlock(qrPairingManager, "qrProc").indexOf("qrProc.write(") >= 0,
+        "QR payload is written to qrencode stdin");
+    assert.ok(extractFunction(qrPairingManager, "_reset").indexOf("_clearSecrets()") >= 0,
+        "session reset clears the QR credentials");
+    assert.ok(extractFunction(qrPairingManager, "_onPairingServiceFound").indexOf("_clearSecrets()") >= 0,
+        "credentials are cleared when handed to ADB");
+    const pairOnly = extractFunction(wirelessManager, "pair(");
+    assert.ok(pairOnly.indexOf("isValidPairingPassword") >= 0, "pair() validates the password before writing it");
 
     console.log("All ProcessSafety fixtures passed.");
 }

@@ -17,6 +17,8 @@ integration. It is **not** a fork or reimplementation of scrcpy.
 ## Features
 
 - USB device discovery via `adb devices -l`.
+- Android 11+ Wireless Debugging QR-code pairing: scan one code on the phone,
+  no addresses or codes to type.
 - Android 11+ Wireless Debugging pair/connect flow with a masked six-digit
   pairing code.
 - Saved wireless device metadata for one-tap reconnect after an Omarchy shell
@@ -61,6 +63,18 @@ omarchy pkg add scrcpy android-tools
 - `scrcpy` is the upstream mirroring engine.
 - `android-tools` provides the ADB client. The `scrcpy` package depends on
   `android-tools`, but listing both keeps the setup explicit.
+
+QR-code pairing additionally uses two tools that are part of the Omarchy base
+install, so no extra setup is normally needed:
+
+- `qrencode` generates the QR code.
+- `avahi` (`avahi-browse` and the running `avahi-daemon`) finds the phone on
+  the local network through mDNS. The `android-tools` build of `adb` has no
+  mDNS support of its own.
+
+If either was removed, restore it with `omarchy pkg add qrencode avahi` and
+`sudo systemctl enable --now avahi-daemon`. Pairing with a pairing code works
+without them.
 
 These are ordinary system packages. The plugin does **not** install them
 automatically, and the plugin should not be run as root.
@@ -154,12 +168,36 @@ does not work, check that option in the phone's developer settings.
 ## Wireless mirroring (Android 11+)
 
 The wireless flow uses Android's **Wireless Debugging**. The plugin never
-stores the six-digit pairing code.
+stores the six-digit pairing code or the QR-code pairing password.
 
-### First-time pairing
+### First-time pairing with a QR code
+
+1. On the Android device, enable **Wireless Debugging** (Settings → Developer
+   options). The phone and the computer must be on the same network.
+2. Open the Android Mirroring bar widget.
+3. In the **Wireless** section, press **Pair with QR code**. A QR code
+   appears in the panel.
+4. On the Android device, open **Wireless debugging**, tap **Pair device with
+   QR code**, and scan the code.
+5. The plugin pairs, finds the phone's Wireless Debugging address, runs
+   `adb connect`, and refreshes the device list. The phone appears as
+   **Wireless · Ready** and is saved for later reconnects.
+
+The code is drawn as round dots in the active theme's two colours. The darker
+colour is always used for the dots and the lighter one for the backdrop, on
+dark and light themes alike, because phone scanners are only guaranteed to
+read dark-on-light codes. If the theme's colours are too close together to
+scan reliably, the code falls back to near-black on white.
+
+Each QR code is single-use and expires after three minutes or when the panel
+closes. Press **New QR code** to generate another. If the phone pairs but its
+address cannot be found, use **Already paired? Connect** with the address
+shown on the Wireless debugging screen.
+
+### First-time pairing with a pairing code
 
 1. Open the Android Mirroring bar widget.
-2. In the **Wireless** section, press **Pair a new phone**.
+2. In the **Wireless** section, press **Pair with pairing code**.
 3. On the Android device, enable **Wireless Debugging** (Settings → Developer
    options).
 4. Note the main **Wireless debugging** IP address and port shown on that
@@ -205,10 +243,16 @@ Important notes:
 - **Wireless Debugging** must be enabled whenever the user wants to connect or
   use a wireless mirroring session. It may be turned off between sessions and
   must be re-enabled before reconnecting.
-- QR pairing is not supported in v0.1.
+- The QR-code pairing password is generated per QR code from the kernel
+  random source. It is written to `qrencode` and ADB stdin and is never
+  saved, logged, or passed as a process argument.
+- QR-code pairing finds the phone through mDNS, which only works when the
+  phone and the computer are on the same local network and that network does
+  not block multicast (some guest and corporate Wi-Fi networks do). A VPN on
+  either device can also hide the phone; use a pairing code in those cases.
 - Wireless liveness detection and the final M6 release validation were performed
   with IPv4-style ADB endpoints. IPv6 wireless endpoints are not guaranteed in
-  v0.1.
+  v0.1, and QR-code pairing uses IPv4 addresses only.
 
 ## Usage
 
@@ -285,6 +329,9 @@ delete this file to remove all saved wireless history.
 | Device shows **Authorization required** | Accept the USB debugging prompt on the phone. Re-plug the cable and press Refresh if needed. |
 | No devices detected | Enable USB debugging or Wireless Debugging. Check the cable. Run `adb devices -l` directly. |
 | Wireless pairing fails | The pairing popup expired (reopen it), the address or code is wrong, or the phone and computer are not on the same network. |
+| QR code is scanned but the panel keeps waiting | The phone and computer are on different networks, the network blocks mDNS, or a VPN is active. Check `avahi-browse -rt _adb-tls-pairing._tcp` while the phone shows "Pairing with device", or use **Pair with pairing code**. |
+| "Could not search the network for the phone" | `avahi-browse` is missing or `avahi-daemon` is not running. Run `omarchy pkg add avahi` and `sudo systemctl enable --now avahi-daemon`. |
+| "Could not generate the QR code" | `qrencode` is missing. Run `omarchy pkg add qrencode`. |
 | Saved phone shows **Wireless · Unavailable** | The wireless debugging port may have changed. Use **Update** to enter the new endpoint and **Connect**. |
 | Mirror image appears but input does not work | Some devices, especially Xiaomi-family devices, may require the additional "USB debugging (Security Settings)" option for input injection, sometimes followed by a reboot. Check the phone's developer/security settings. |
 | Hyprland rule not applied | Run `hyprctl reload` and `hyprctl configerrors`. Ensure the guard block was added after `require("default.hypr.omarchy")`. |
@@ -304,7 +351,7 @@ adb version
 hyprctl configerrors
 ```
 
-Do **not** share pairing codes, saved device state, or unrelated personal files
+Do **not** share pairing codes, QR pairing codes, saved device state, or unrelated personal files
 when asking for help.
 
 ## Uninstall
@@ -334,6 +381,7 @@ Quickshell process:
 Omarchy bar widget
   → qml/DeviceManager.qml (adb discovery)
   → qml/WirelessManager.qml (wireless pair/connect)
+  → qml/QrPairingManager.qml (QR code and mDNS discovery for QR pairing)
   → qml/SavedDeviceStore.qml (persisted known devices)
   → qml/ScrcpyBackend.qml (tracked scrcpy process)
   → qml/BarWidget.qml (panel UI and options)
@@ -367,7 +415,6 @@ project's MIT license.
 
 Post-v0.1 ideas:
 
-- QR-code wireless pairing.
 - Improved device discovery and reconnect.
 - Richer keyboard/focus navigation in the panel.
 - Optional future backend research; a custom Android backend is not a

@@ -5,6 +5,7 @@ import qs.Commons
 import qs.Ui
 import "ScrcpyCommand.js" as ScrcpyCommand
 import "WirelessCommand.js" as WirelessCommand
+import "QrPairing.js" as QrPairing
 
 Panel {
     id: root
@@ -14,7 +15,7 @@ Panel {
 
     property var displayItems: []
     property string _formError: ""
-    property string _wirelessMode: "menu" // menu, pair-step1, pair-step2, already, update
+    property string _wirelessMode: "menu" // menu, qr, pair-step1, pair-step2, already, update
     property string _step1Endpoint: ""
     property string _pendingWirelessEndpoint: ""
     property string _pendingRecordId: ""
@@ -38,6 +39,11 @@ Panel {
         id: wirelessManager
     }
 
+    QrPairingManager {
+        id: qrPairing
+        wireless: wirelessManager
+    }
+
     SavedDeviceStore {
         id: savedStore
     }
@@ -45,7 +51,15 @@ Panel {
     Connections {
         target: root
         function onOpenedChanged() {
-            if (root.opened) deviceManager.refresh()
+            if (root.opened) {
+                deviceManager.refresh()
+                return
+            }
+            // A QR code nobody can see cannot be scanned. Drop the session so
+            // its one-time credentials do not outlive the open panel.
+            if (qrPairing.state === "preparing" || qrPairing.state === "waiting") {
+                root._setWirelessMode("menu")
+            }
         }
     }
 
@@ -109,9 +123,26 @@ Panel {
         // actually starts a new connection.
         root._pendingRecordId = ""
         root._pendingWirelessEndpoint = ""
+        if (mode !== "qr") qrPairing.cancel()
         root._wirelessMode = mode
         root._formError = ""
         wirelessManager.clearError()
+    }
+
+    function _startQrPairing() {
+        if (wirelessManager.busy) return
+        scrcpyBackend.clearError()
+        wirelessManager.clearError()
+        root._formError = ""
+        root._pendingRecordId = ""
+        qrPairing.start()
+    }
+
+    function _qrStatusText() {
+        if (qrPairing.state === "preparing") return "Generating QR code\u2026"
+        if (qrPairing.state === "waiting") return "Waiting for your phone to scan\u2026"
+        if (qrPairing.state === "locating") return "Paired. Finding your phone\u2026"
+        return ""
     }
 
     function _onWirelessConnected(endpoint) {
@@ -755,7 +786,7 @@ Panel {
 
                     Text {
                         visible: root._wirelessMode === "menu"
-                        text: "Pair a new phone over Wi-Fi, or connect a phone that is already paired."
+                        text: "Pair a new phone over Wi-Fi with a QR code or a pairing code, or connect a phone that is already paired."
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.bodySmall
@@ -766,7 +797,18 @@ Panel {
 
                     Button {
                         visible: root._wirelessMode === "menu"
-                        text: "Pair a new phone"
+                        text: "Pair with QR code"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() {
+                            root._setWirelessMode("qr")
+                            root._startQrPairing()
+                        }
+                        onClicked: actionFn()
+                    }
+
+                    Button {
+                        visible: root._wirelessMode === "menu"
+                        text: "Pair with pairing code"
                         enabled: !wirelessManager.busy
                         property var actionFn: function() {
                             step1ConnAddrField.text = ""
@@ -786,11 +828,148 @@ Panel {
                         onClicked: actionFn()
                     }
 
+                    // ---- pair with QR code ----------------------------------
+
+                    Text {
+                        visible: root._wirelessMode === "qr"
+                        text: "Pair with QR code"
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "qr" && (qrPairing.state === "preparing" || qrPairing.state === "waiting")
+                        text: "On your phone, open Wireless debugging, tap \"Pair device with QR code\", and scan this code. The phone and computer must be on the same network."
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.bodySmall
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    // Dot-style QR code in the theme's own two colours. Data
+                    // modules are round dots and the three finder patterns are
+                    // rounded shapes. The darker theme colour is always the
+                    // dots and the lighter one the backdrop, so the code stays
+                    // dark-on-light for phone cameras on any theme; the quiet
+                    // zone is part of the matrix.
+                    Item {
+                        visible: root._wirelessMode === "qr" && qrPairing.state === "waiting" && qrPairing.qrSize > 0
+                        width: parent.width
+                        height: qrCanvas.height
+
+                        Rectangle {
+                            id: qrCanvas
+                            readonly property int moduleSize: qrPairing.qrSize > 0
+                                ? Math.max(2, Math.floor(parent.width / qrPairing.qrSize))
+                                : 0
+
+                            readonly property var palette: QrPairing.pickQrPalette(Color.foreground, Color.background)
+                            readonly property color dotColor: Qt.rgba(palette.dark.r, palette.dark.g, palette.dark.b, 1)
+
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: qrPairing.qrSize * moduleSize
+                            height: width
+                            color: Qt.rgba(palette.light.r, palette.light.g, palette.light.b, 1)
+                            // Stays well inside the quiet zone.
+                            radius: moduleSize * 2
+
+                            Grid {
+                                anchors.fill: parent
+                                columns: Math.max(1, qrPairing.qrSize)
+
+                                Repeater {
+                                    model: qrPairing.qrSize * qrPairing.qrSize
+
+                                    Rectangle {
+                                        required property int index
+                                        readonly property int matrixRowIndex: Math.floor(index / qrPairing.qrSize)
+                                        readonly property int matrixColumn: index % qrPairing.qrSize
+                                        readonly property string matrixRow: qrPairing.qrRows[matrixRowIndex] || ""
+
+                                        width: qrCanvas.moduleSize
+                                        height: qrCanvas.moduleSize
+                                        radius: width / 2
+                                        color: matrixRow.charAt(matrixColumn) === "1"
+                                            && !QrPairing.isFinderModule(matrixRowIndex, matrixColumn, qrPairing.qrSize)
+                                            ? qrCanvas.dotColor : "transparent"
+                                    }
+                                }
+                            }
+
+                            // Finder patterns: a 7-module rounded square, a
+                            // 5-module gap, and a 3-module rounded centre.
+                            Repeater {
+                                model: QrPairing.finderOrigins(qrPairing.qrSize)
+
+                                Rectangle {
+                                    required property var modelData
+
+                                    x: modelData.col * qrCanvas.moduleSize
+                                    y: modelData.row * qrCanvas.moduleSize
+                                    width: QrPairing.FINDER_SIZE * qrCanvas.moduleSize
+                                    height: width
+                                    radius: qrCanvas.moduleSize * 2
+                                    color: qrCanvas.dotColor
+
+                                    Rectangle {
+                                        anchors.centerIn: parent
+                                        width: 5 * qrCanvas.moduleSize
+                                        height: width
+                                        radius: qrCanvas.moduleSize * 1.25
+                                        color: qrCanvas.color
+
+                                        Rectangle {
+                                            anchors.centerIn: parent
+                                            width: 3 * qrCanvas.moduleSize
+                                            height: width
+                                            radius: qrCanvas.moduleSize
+                                            color: qrCanvas.dotColor
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "qr" && root._qrStatusText() !== ""
+                        text: root._qrStatusText()
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Text {
+                        visible: root._wirelessMode === "qr" && qrPairing.errorMessage !== ""
+                        text: qrPairing.errorMessage
+                        color: Color.urgent
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Button {
+                        visible: root._wirelessMode === "qr" && qrPairing.state === "error"
+                        text: "New QR code"
+                        enabled: !wirelessManager.busy
+                        property var actionFn: function() { root._startQrPairing() }
+                        onClicked: actionFn()
+                    }
+
                     // ---- pair step 1 ----------------------------------------
 
                     Text {
                         visible: root._wirelessMode === "pair-step1"
-                        text: "Pair a new phone"
+                        text: "Pair with pairing code"
                         color: Color.foreground
                         font.family: Style.font.family
                         font.pixelSize: Style.font.body

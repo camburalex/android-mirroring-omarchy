@@ -66,6 +66,17 @@ function run() {
     assert.strictEqual(wc.isValidPairingCode(""), false, "empty");
     assert.strictEqual(wc.isValidPairingCode(123456), false, "number");
 
+    // Pairing password validation (QR-code workflow).
+    assert.strictEqual(wc.isValidPairingPassword("3d4e5f60718293a4b5c6d7e8"), true, "valid password");
+    assert.strictEqual(wc.isValidPairingPassword("AbC123"), true, "minimum length password");
+    assert.strictEqual(wc.isValidPairingPassword("abc12"), false, "password too short");
+    assert.strictEqual(wc.isValidPairingPassword("a".repeat(65)), false, "password too long");
+    assert.strictEqual(wc.isValidPairingPassword("abc123\n"), false, "password with newline");
+    assert.strictEqual(wc.isValidPairingPassword("abc 123"), false, "password with space");
+    assert.strictEqual(wc.isValidPairingPassword("abc-123"), false, "password with punctuation");
+    assert.strictEqual(wc.isValidPairingPassword(""), false, "empty password");
+    assert.strictEqual(wc.isValidPairingPassword(123456), false, "non-string password");
+
     // Pair command: argv form and security.
     const fakeCode = "123456";
     const pairCmd = wc.buildPairCommand("192.168.1.20:37123");

@@ -24,6 +24,10 @@ Scope {
     property string _pairingCode: ""
     property string _lastConnectionEndpoint: ""
 
+    // True while the current pair run was started by pair(): it stops after a
+    // successful `adb pair` instead of chaining into `adb connect`.
+    property bool _pairOnly: false
+
     property var _pairCtx: null
     property int _pairGen: 0
     property int _pairExitCode: 0
@@ -37,6 +41,7 @@ Scope {
     property var _connectErrCapture: null
 
     signal connected(string endpoint)
+    signal paired(string pairingEndpoint)
 
     function pairAndConnect(pairingEndpoint, connectionEndpoint, pairingCode) {
         if (root.busy) return;
@@ -63,7 +68,33 @@ Scope {
             return;
         }
 
+        root._pairOnly = false;
         root._startPair(pairingEndpoint, connectionEndpoint, pairingCode);
+    }
+
+    // Pair without connecting. Used by the QR-code workflow, where the main
+    // connection endpoint is only discovered after pairing succeeds. Emits
+    // paired() on success; the caller then calls connect().
+    function pair(pairingEndpoint, pairingPassword) {
+        if (root.busy) return;
+
+        root.clearError();
+
+        var pairCheck = WirelessCommand.validateEndpoint(pairingEndpoint);
+        if (!pairCheck.ok) {
+            root.state = "error";
+            root.errorMessage = "Pairing address is invalid. " + pairCheck.reason;
+            return;
+        }
+
+        if (!WirelessCommand.isValidPairingPassword(pairingPassword)) {
+            root.state = "error";
+            root.errorMessage = "Pairing password is invalid.";
+            return;
+        }
+
+        root._pairOnly = true;
+        root._startPair(pairingEndpoint, "", pairingPassword);
     }
 
     function _startPair(pairingEndpoint, connectionEndpoint, pairingCode) {
@@ -242,7 +273,15 @@ Scope {
 
         if (!result.ok) {
             root.state = "error";
-            root.errorMessage = "Pairing failed. Verify the address, port, and pairing code.";
+            root.errorMessage = root._pairOnly
+                ? "Pairing failed. Scan a new QR code and try again."
+                : "Pairing failed. Verify the address, port, and pairing code.";
+            return;
+        }
+
+        if (root._pairOnly) {
+            root.state = "paired";
+            root.paired(root._pairingEndpoint);
             return;
         }
 

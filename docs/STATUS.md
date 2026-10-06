@@ -211,11 +211,47 @@
     when the session ends.
   - Numeric endpoint/port entry works normally.
   - No plugin-owned process remains after stop/uninstall.
-- No required P0 hardware or release-gate tests remain pending.
+- No required P0 hardware or release-gate tests remain pending for v0.1.1.
+- QR-code wireless pairing (post-v0.1.1, unreleased): implemented, Android
+  hardware validation PENDING.
+  - adds `qml/QrPairing.js` and a `Scope`-owned `qml/QrPairingManager.qml`
+    that generates one-time credentials from `/dev/urandom`, renders the
+    `WIFI:T:ADB;S:<name>;P:<password>;;` code through `qrencode` (payload on
+    stdin), and watches `avahi-browse` for the phone's `_adb-tls-pairing._tcp`
+    and `_adb-tls-connect._tcp` services;
+  - adds `WirelessManager.pair()`, a pair-only path that reuses the existing
+    stdin-fed `adb pair` process and emits `paired()`; the existing
+    `connect()` and saved-device handling finish the flow;
+  - adds a "Pair with QR code" entry to the Wireless menu; the former "Pair a
+    new phone" entry is now "Pair with pairing code";
+  - follows the v0.1.1 review hardening: every QR-pairing process stream is
+    a chunk-mode `SplitParser` (no `StdioCollector`, no newline parser);
+    `od`/`qrencode` output is a `BoundedOutput` capture whose overflow ends
+    the run; `avahi-browse` output goes through bounded line assembly
+    (2,048 code units per record, 262,144 per run); the rendered QR matrix is
+    capped at 64 modules per side; stderr is discarded per chunk; QR
+    generation, the scan wait, and the endpoint lookup have finite deadlines
+    (5 s, 180 s, 20 s) and `adb pair`/`adb connect` keep their existing
+    30 s deadlines; every stop request escalates to SIGKILL after 1.5 s;
+  - the code is drawn dot-style (round data modules, rounded finder patterns)
+    in the theme's foreground/background colours, never inverted, with a
+    near-black-on-white fallback below a 7:1 contrast ratio; the on-screen
+    code decodes with `zbarimg`;
+  - `adb mdns check` on the target reports mDNS as unsupported by the
+    android-tools build, so discovery does not use `adb mdns`;
+  - automated: `tests/QrPairing.test.js` plus extended
+    `tests/WirelessCommand.test.js` and `tests/ProcessSafety.test.js` pass;
+    `omarchy plugin validate .` passes;
+  - target, no phone: cold shell restart loads the plugin without QML errors,
+    the panel renders the QR code, the on-screen code decodes to the session
+    payload, and a simulated `_adb-tls-pairing._tcp` advertisement drives the
+    real `adb pair` to the expected failure message;
+  - not validated: a real phone scanning the code, real pairing, and the
+    automatic connect that follows (Q1–Q6 in `docs/TESTING.md`).
 - Known limitations for v0.1:
   - Wireless liveness/health-check and final M6 validation targeted IPv4-style
     ADB endpoints; IPv6 wireless endpoints are not guaranteed.
-  - QR-code wireless pairing is not supported.
+  - QR-code wireless pairing is not part of the v0.1.1 release.
   - Plugin-owned scrcpy is forced through the SDL X11 backend (XWayland) on the
     verified Omarchy target because native Wayland did not reliably resize the
     outer floating window on device rotation.

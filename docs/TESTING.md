@@ -63,6 +63,16 @@ Any QML integration change must also survive a full cold restart:
   validation, pairing-code validation, and `adb pair` / `adb connect` command
   building against the real production `qml/WirelessCommand.js`.
 
+## QR pairing checks
+
+- `node tests/QrPairing.test.js` runs the fixture suite for credential
+  generation, the QR payload, `qrencode` matrix parsing, `avahi-browse` record
+  parsing, pairing/connect service matching, and bounded line assembly against
+  the real production `qml/QrPairing.js`.
+- `node tests/ProcessSafety.test.js` also covers `qml/QrPairingManager.qml`:
+  FailedToStart fallbacks, bounded streams, finite deadlines, and stdin-only
+  handling of the pairing password.
+
 ## USB session regression checks (M2-T2B)
 
 - Panel controls (title, Refresh, session status, Stop, device rows,
@@ -111,3 +121,18 @@ Any QML integration change must also survive a full cold restart:
 - Input/Stop: PASS
 - Panel auto-dismiss/reopen/Stop: PASS
 - Saved-device duplicate fix: PASS
+
+### QR pairing
+
+Not yet run on Android hardware.
+
+- Q1 QR code appears and the phone's "Pair device with QR code" scanner
+  accepts the dot-style, theme-coloured code (check a dark and a light
+  theme): PENDING
+- Q2 pair + automatic connect, phone shows as `Wireless · Ready` and is saved:
+  PENDING
+- Q3 Back / panel close while waiting, then a new QR code pairs: PENDING
+- Q4 QR code left unscanned expires with a visible message: PENDING
+- Q5 wireless scrcpy after QR pairing with USB physically disconnected:
+  PENDING
+- Q6 pairing-code and "Already paired? Connect" regression: PENDING
