@@ -1,4 +1,4 @@
-# Android Mirroring — Omarchy plugin v0.1
+# Android Mirroring — Omarchy plugin v0.2
 
 ![Screenshot_Tiktok](docs/screenshots/Screenshot_Tiktok.png)
 ![Screenshot_Rotated](docs/screenshots/Screenshot_Rotated.png)

@@ -124,13 +124,14 @@ Any QML integration change must also survive a full cold restart:
 
 ### QR pairing
 
-Not yet run on Android hardware.
+Maintainer hardware test of QR pairing on a phone: pair and connect work.
+The remaining cases were not run individually.
 
 - Q1 QR code appears and the phone's "Pair device with QR code" scanner
   accepts the dot-style, theme-coloured code (check a dark and a light
-  theme): PENDING
+  theme): PASS on the maintainer's theme; the other polarity not run
 - Q2 pair + automatic connect, phone shows as `Wireless · Ready` and is saved:
-  PENDING
+  PASS
 - Q3 Back / panel close while waiting, then a new QR code pairs: PENDING
 - Q4 QR code left unscanned expires with a visible message: PENDING
 - Q5 wireless scrcpy after QR pairing with USB physically disconnected:

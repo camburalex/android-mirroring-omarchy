@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "dev.android-mirroring",
   "name": "Android Mirroring",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "author": "Omarchy Android Mirroring contributors",
   "description": "Third-party Android device mirroring plugin for Omarchy. Mirrors and controls Android phones and tablets over USB or Android 11+ Wireless Debugging using upstream scrcpy as the rendering engine.",
   "kinds": [

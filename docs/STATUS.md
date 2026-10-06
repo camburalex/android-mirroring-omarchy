@@ -212,8 +212,8 @@
   - Numeric endpoint/port entry works normally.
   - No plugin-owned process remains after stop/uninstall.
 - No required P0 hardware or release-gate tests remain pending for v0.1.1.
-- QR-code wireless pairing (post-v0.1.1, unreleased): implemented, Android
-  hardware validation PENDING.
+- QR-code wireless pairing (v0.2.0): implemented. Maintainer hardware test
+  on a phone: QR pairing and the automatic connect work.
   - adds `qml/QrPairing.js` and a `Scope`-owned `qml/QrPairingManager.qml`
     that generates one-time credentials from `/dev/urandom`, renders the
     `WIFI:T:ADB;S:<name>;P:<password>;;` code through `qrencode` (payload on
@@ -246,12 +246,11 @@
     the panel renders the QR code, the on-screen code decodes to the session
     payload, and a simulated `_adb-tls-pairing._tcp` advertisement drives the
     real `adb pair` to the expected failure message;
-  - not validated: a real phone scanning the code, real pairing, and the
-    automatic connect that follows (Q1–Q6 in `docs/TESTING.md`).
+  - not run individually: cancel/re-pair, expiry, the second theme polarity,
+    and the pairing-code regression (Q3–Q6 in `docs/TESTING.md`).
 - Known limitations for v0.1:
   - Wireless liveness/health-check and final M6 validation targeted IPv4-style
     ADB endpoints; IPv6 wireless endpoints are not guaranteed.
-  - QR-code wireless pairing is not part of the v0.1.1 release.
   - Plugin-owned scrcpy is forced through the SDL X11 backend (XWayland) on the
     verified Omarchy target because native Wayland did not reliably resize the
     outer floating window on device rotation.
