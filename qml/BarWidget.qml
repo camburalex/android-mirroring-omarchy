@@ -27,6 +27,13 @@ Panel {
     property bool _recordingOn: false
     readonly property bool _controlsEnabled: !scrcpyBackend.running && !scrcpyBackend.starting && !scrcpyBackend.stopping
 
+    DependencyManager {
+        id: dependencies
+        onBecameReady: {
+            if (root.opened) deviceManager.refresh()
+        }
+    }
+
     DeviceManager {
         id: deviceManager
     }
@@ -52,6 +59,7 @@ Panel {
         target: root
         function onOpenedChanged() {
             if (root.opened) {
+                dependencies.check()
                 deviceManager.refresh()
                 return
             }
@@ -402,8 +410,44 @@ Panel {
                     }
                 }
 
+                Column {
+                    visible: dependencies.missing
+                    width: parent.width
+                    spacing: Style.space(8)
+
+                    Text {
+                        text: dependencies.installing
+                            ? "Installing scrcpy and ADB\u2026 Finish the install in the terminal window."
+                            : "Android Mirroring needs scrcpy and ADB, which are not installed yet."
+                        color: Color.foreground
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Text {
+                        visible: dependencies.error !== ""
+                        text: dependencies.error
+                        color: Color.urgent
+                        font.family: Style.font.family
+                        font.pixelSize: Style.font.body
+                        textFormat: Text.PlainText
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+
+                    Button {
+                        text: dependencies.installing ? "Installing\u2026" : "Install scrcpy and ADB"
+                        enabled: !dependencies.installing
+                        property var actionFn: function() { dependencies.install() }
+                        onClicked: actionFn()
+                    }
+                }
+
                 Text {
-                    visible: deviceManager.busy
+                    visible: deviceManager.busy && !dependencies.missing
                     text: "Checking devices\u2026"
                     color: Color.foreground
                     font.family: Style.font.family
@@ -414,7 +458,7 @@ Panel {
                 }
 
                 Text {
-                    visible: !deviceManager.busy && deviceManager.error !== ""
+                    visible: !dependencies.missing && !deviceManager.busy && deviceManager.error !== ""
                     text: deviceManager.error
                     color: Color.urgent
                     font.family: Style.font.family
@@ -458,7 +502,7 @@ Panel {
                 }
 
                 Text {
-                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && root._formError === "" && displayItems.length === 0
+                    visible: !dependencies.missing && !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && root._formError === "" && displayItems.length === 0
                     text: "No Android devices detected."
                     color: Color.foreground
                     font.family: Style.font.family
@@ -472,6 +516,7 @@ Panel {
                     id: controlsSection
                     width: parent.width
                     spacing: Style.space(12)
+                    visible: !dependencies.missing
 
                     Text {
                         text: "Controls"
@@ -636,7 +681,7 @@ Panel {
                     id: deviceList
                     width: parent.width
                     spacing: Style.space(10)
-                    visible: !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && displayItems.length > 0
+                    visible: !dependencies.missing && !deviceManager.busy && deviceManager.error === "" && scrcpyBackend.errorMessage === "" && displayItems.length > 0
 
                     Repeater {
                         model: root.displayItems
@@ -772,6 +817,7 @@ Panel {
                     id: wirelessSection
                     width: parent.width
                     spacing: Style.space(10)
+                    visible: !dependencies.missing
 
                     // ---- menu ------------------------------------------------
 

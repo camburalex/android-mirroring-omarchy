@@ -53,16 +53,22 @@ Device requirements:
 
 ## Dependencies
 
-The plugin calls the system `scrcpy` and `adb` binaries directly. Install them
-with the Omarchy package manager before installing the plugin:
+The plugin calls the system `scrcpy` and `adb` binaries directly. They are not
+part of the Omarchy base install, and you do **not** need to install them
+beforehand: setup is built into the widget.
 
-```bash
-omarchy pkg add scrcpy android-tools
-```
+When either package is missing, the panel shows an **Install scrcpy and ADB**
+button instead of the device list. Pressing it starts Omarchy's own installer
+(`omarchy-install-app`), which opens a floating terminal, asks for your
+password there, and installs both packages from the official repositories. The
+widget notices when the install finishes and continues to the device list; no
+shell restart is needed.
 
 - `scrcpy` is the upstream mirroring engine.
-- `android-tools` provides the ADB client. The `scrcpy` package depends on
-  `android-tools`, but listing both keeps the setup explicit.
+- `android-tools` provides the ADB client.
+
+If you prefer the terminal, `omarchy pkg add scrcpy android-tools` does the
+same thing.
 
 QR-code pairing additionally uses two tools that are part of the Omarchy base
 install, so no extra setup is normally needed:
@@ -76,8 +82,10 @@ If either was removed, restore it with `omarchy pkg add qrencode avahi` and
 `sudo systemctl enable --now avahi-daemon`. Pairing with a pairing code works
 without them.
 
-These are ordinary system packages. The plugin does **not** install them
-automatically, and the plugin should not be run as root.
+These are ordinary system packages. Nothing is installed without you pressing
+the install button, the plugin itself never asks for privileges (the password
+prompt belongs to Omarchy's installer terminal), and the plugin should not be
+run as root.
 
 ## Installation
 
@@ -91,8 +99,9 @@ If you are installing from a fork or a local copy, replace the URL with your
 public repository URL. The plugin must come from a public GitHub repository
 before it can be submitted to omarchyplugins.com.
 
-`--enable` performs the native install and enable step, so no manual rescan is
-required. If you need to manually reload plugins during development or
+That is the whole setup: `--enable` performs the native install and enable
+step, and the widget offers to install `scrcpy` and ADB the first time you open
+it if they are missing. No manual rescan is required. If you need to manually reload plugins during development or
 troubleshooting, you can run:
 
 ```bash
@@ -324,8 +333,8 @@ delete this file to remove all saved wireless history.
 
 | Symptom | Likely cause and fix |
 |---------|----------------------|
-| "scrcpy not found" or `scrcpy` missing | Run `omarchy pkg add scrcpy android-tools` and restart the shell. |
-| `adb devices -l` not found | `android-tools` is missing or not on PATH. Install with `omarchy pkg add scrcpy android-tools`. |
+| Panel shows **Install scrcpy and ADB** | `scrcpy` or `android-tools` is not installed. Press the button and finish the install in the terminal that opens. |
+| "The install did not finish" | The installer terminal was closed or the install failed. Press the button again, or run `omarchy pkg add scrcpy android-tools` to see the error. |
 | Device shows **Authorization required** | Accept the USB debugging prompt on the phone. Re-plug the cable and press Refresh if needed. |
 | No devices detected | Enable USB debugging or Wireless Debugging. Check the cable. Run `adb devices -l` directly. |
 | Wireless pairing fails | The pairing popup expired (reopen it), the address or code is wrong, or the phone and computer are not on the same network. |
@@ -400,7 +409,7 @@ Created and maintained by [@camburalex](https://github.com/camburalex).
 This plugin is an independent Omarchy integration and is **not** a fork or
 reimplementation of [scrcpy](https://github.com/Genymobile/scrcpy). scrcpy is
 developed by Genymobile, Romain Vimont, and contributors and is licensed under
-the Apache License 2.0. It is installed separately and is the upstream external
+the Apache License 2.0. It is installed as a separate system package and is the upstream external
 mirroring backend.
 
 ## License

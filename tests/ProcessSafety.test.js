@@ -189,6 +189,24 @@ function run() {
     const pairOnly = extractFunction(wirelessManager, "pair(");
     assert.ok(pairOnly.indexOf("isValidPairingPassword") >= 0, "pair() validates the password before writing it");
 
+    // Integrated dependency setup: the only detached launch in the plugin is
+    // Omarchy's installer, started with the fixed argv from DependencySetup.
+    // The plugin never escalates privileges or builds a shell string itself.
+    const dependencyManager = readQml("DependencyManager.qml");
+    for (const needle of ["pkill", "killall", "startDetached", "sudo", "pkexec", "doas", "sh -c", "bash -c"]) {
+        assertNotContains(dependencyManager, needle, "dependency manager process safety");
+    }
+    assert.strictEqual(dependencyManager.split("execDetached").length - 1, 1,
+        "dependency manager has exactly one detached launch");
+    assert.ok(dependencyManager.indexOf("Quickshell.execDetached(DependencySetup.buildInstallArgv())") >= 0,
+        "the detached launch uses the fixed installer argv");
+    assert.ok(extractFunction(dependencyManager, "install").indexOf("root.ready || root.installing") >= 0,
+        "install is a no-op when already ready or installing");
+    for (const name of fs.readdirSync(QML_DIR)) {
+        if (name === "DependencyManager.qml" || !/\.(qml|js)$/.test(name)) continue;
+        assertNotContains(readQml(name), "execDetached", "no detached launch outside dependency setup: " + name);
+    }
+
     console.log("All ProcessSafety fixtures passed.");
 }
 

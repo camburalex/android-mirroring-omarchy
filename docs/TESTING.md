@@ -73,6 +73,18 @@ Any QML integration change must also survive a full cold restart:
   FailedToStart fallbacks, bounded streams, finite deadlines, and stdin-only
   handling of the pairing password.
 
+## Dependency setup checks
+
+- `node tests/DependencySetup.test.js` runs the fixture suite for the required
+  package list, the fixed `pacman -Q` and `omarchy-install-app` argv, and the
+  finite installer wait against the real production `qml/DependencySetup.js`.
+- `node tests/ProcessSafety.test.js` also covers `qml/DependencyManager.qml`:
+  the Omarchy installer is the only detached launch in the plugin and uses the
+  fixed argv.
+- With `scrcpy` and `android-tools` removed, the panel shows **Install scrcpy
+  and ADB** instead of the device list; pressing it opens Omarchy's installer
+  terminal, and the panel continues to the device list once it finishes.
+
 ## USB session regression checks (M2-T2B)
 
 - Panel controls (title, Refresh, session status, Stop, device rows,
