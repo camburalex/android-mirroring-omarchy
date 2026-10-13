@@ -184,9 +184,18 @@ Panel {
         if (wirelessManager.errorMessage === "") root._setWirelessMode("menu")
     }
 
+    function _matchesSavedRecord(device, saved) {
+        for (var i = 0; i < saved.length; i++) {
+            if (device.serial === saved[i].lastKnownEndpoint || device.serial === saved[i].adbSerial) return true
+        }
+        return false
+    }
+
     function _rebuildDisplayItems() {
-        var live = deviceManager.devices || []
         var saved = savedStore.devices || []
+        var live = (deviceManager.devices || []).filter(function(device) {
+            return device.rawState !== "offline" || !root._matchesSavedRecord(device, saved)
+        })
         var result = []
         var confirmRowVisible = false
 

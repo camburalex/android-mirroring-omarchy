@@ -163,3 +163,12 @@ The remaining cases were not run individually.
 - R5 removing the record open in the **Update** form returns to the Wireless
   menu: PENDING
 - R6 closing the panel cancels a pending confirmation: PENDING
+
+### Saved-device offline state
+
+- O1 turning off Wireless debugging while a saved phone is connected shows it
+  as **Wireless · Unavailable** with Reconnect, Update, and the remove icon,
+  not the bare "Device is offline" row: PASS
+- O2 pressing **Reconnect** while ADB still lists the address as `offline`
+  either reaches **Wireless · Ready** or shows a connect error (record which):
+  PASS, "Could not reach this device" with Wireless debugging still off
