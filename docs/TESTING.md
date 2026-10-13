@@ -54,8 +54,8 @@ Any QML integration change must also survive a full cold restart:
 
 - `node tests/SavedDeviceData.test.js` runs the fixture suite for empty state,
   valid records, unknown/pairing-code field stripping, malformed JSON and wrong
-  schema handling, endpoint updates, and allow-list serialization against the
-  real production `qml/SavedDeviceData.js`.
+  schema handling, endpoint updates, record removal, and allow-list
+  serialization against the real production `qml/SavedDeviceData.js`.
 
 ## Wireless pairing checks
 
@@ -149,3 +149,17 @@ The remaining cases were not run individually.
 - Q5 wireless scrcpy after QR pairing with USB physically disconnected:
   PENDING
 - Q6 pairing-code and "Already paired? Connect" regression: PENDING
+
+### Saved-device removal
+
+- R1 the remove icon appears only on **Wireless · Unavailable** saved rows:
+  PENDING
+- R2 the remove icon shows the confirm row, and **Cancel** (or the icon
+  again) restores Reconnect/Update: PENDING
+- R3 **Remove** deletes the row and it stays gone after `omarchy restart
+  shell`: PENDING
+- R4 the remove icon and **Remove** are disabled while a wireless connect is
+  in flight: PENDING
+- R5 removing the record open in the **Update** form returns to the Wireless
+  menu: PENDING
+- R6 closing the panel cancels a pending confirmation: PENDING

@@ -20,6 +20,7 @@ Panel {
     property string _pendingWirelessEndpoint: ""
     property string _pendingRecordId: ""
     property var _updateRecord: null
+    property string _confirmRemoveId: ""
 
     property string _selectedPreset: "balanced"
     property bool _audioOn: true
@@ -63,6 +64,7 @@ Panel {
                 deviceManager.refresh()
                 return
             }
+            root._confirmRemoveId = ""
             // A QR code nobody can see cannot be scanned. Drop the session so
             // its one-time credentials do not outlive the open panel.
             if (qrPairing.state === "preparing" || qrPairing.state === "waiting") {
@@ -186,6 +188,7 @@ Panel {
         var live = deviceManager.devices || []
         var saved = savedStore.devices || []
         var result = []
+        var confirmRowVisible = false
 
         for (var i = 0; i < live.length; i++) {
             result.push({ kind: "live", device: live[i] })
@@ -201,10 +204,14 @@ Panel {
                     break
                 }
             }
-            if (!isLive) result.push({ kind: "saved", record: record })
+            if (!isLive) {
+                result.push({ kind: "saved", record: record })
+                if (record.id === root._confirmRemoveId) confirmRowVisible = true
+            }
         }
 
         root.displayItems = result
+        if (!confirmRowVisible) root._confirmRemoveId = ""
     }
 
     // Build the set of known wireless identities for the parser. This lets a
@@ -321,6 +328,13 @@ Panel {
         root._updateRecord = record
         connectAddrField.text = record.lastKnownEndpoint
         root._setWirelessMode("update")
+    }
+
+    function _removeRecord(record) {
+        if (wirelessManager.busy) return
+        if (root._updateRecord && root._updateRecord.id === record.id) root._setWirelessMode("menu")
+        root._confirmRemoveId = ""
+        savedStore.remove(record.id)
     }
 
     KeyboardPanel {
@@ -691,6 +705,8 @@ Panel {
                             spacing: Style.space(2)
 
                             property bool isLiveDevice: modelData.kind === "live"
+                            property string recordId: !isLiveDevice && modelData.record && modelData.record.id ? modelData.record.id : ""
+                            property bool isConfirmingRemove: recordId !== "" && root._confirmRemoveId === recordId
                             property bool isActive: isLiveDevice
                                 && scrcpyBackend.activeSerial === modelData.device.serial
                                 && (scrcpyBackend.running || scrcpyBackend.starting || scrcpyBackend.stopping)
@@ -753,16 +769,33 @@ Panel {
                                 spacing: Style.space(4)
                                 visible: !isLiveDevice
 
-                                Text {
-                                    text: !isLiveDevice && modelData.record
-                                        ? (modelData.record.model || modelData.record.lastKnownEndpoint)
-                                        : ""
-                                    color: Color.foreground
-                                    font.family: Style.font.family
-                                    font.pixelSize: Style.font.body
-                                    textFormat: Text.PlainText
-                                    elide: Text.ElideRight
+                                RowLayout {
                                     width: parent.width
+                                    spacing: Style.space(8)
+
+                                    Text {
+                                        text: !isLiveDevice && modelData.record
+                                            ? (modelData.record.model || modelData.record.lastKnownEndpoint)
+                                            : ""
+                                        color: Color.foreground
+                                        font.family: Style.font.family
+                                        font.pixelSize: Style.font.body
+                                        textFormat: Text.PlainText
+                                        elide: Text.ElideRight
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                                    }
+
+                                    PanelActionButton {
+                                        visible: recordId !== ""
+                                        iconText: "\udb80\udd59"
+                                        tooltipText: "Remove from list"
+                                        foreground: Color.foreground
+                                        hoverColor: Color.urgent
+                                        enabled: !wirelessManager.busy
+                                        onClicked: root._confirmRemoveId = isConfirmingRemove ? "" : recordId
+                                        Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                                    }
                                 }
 
                                 Text {
@@ -778,6 +811,7 @@ Panel {
                                 RowLayout {
                                     width: parent.width
                                     spacing: Style.space(8)
+                                    visible: !isConfirmingRemove
 
                                     Item {
                                         Layout.fillWidth: true
@@ -794,6 +828,37 @@ Panel {
                                         text: "Update"
                                         enabled: !wirelessManager.busy
                                         property var actionFn: function() { root._startUpdate(modelData.record) }
+                                        onClicked: actionFn()
+                                    }
+                                }
+
+                                RowLayout {
+                                    width: parent.width
+                                    spacing: Style.space(8)
+                                    visible: isConfirmingRemove
+
+                                    Text {
+                                        text: "Remove from list?"
+                                        color: Color.foreground
+                                        font.family: Style.font.family
+                                        font.pixelSize: Style.font.body
+                                        textFormat: Text.PlainText
+                                        wrapMode: Text.WordWrap
+                                        Layout.fillWidth: true
+                                        Layout.alignment: Qt.AlignLeft | Qt.AlignVCenter
+                                    }
+
+                                    Button {
+                                        text: "Remove"
+                                        foreground: Color.urgent
+                                        enabled: !wirelessManager.busy
+                                        property var actionFn: function() { root._removeRecord(modelData.record) }
+                                        onClicked: actionFn()
+                                    }
+
+                                    Button {
+                                        text: "Cancel"
+                                        property var actionFn: function() { root._confirmRemoveId = "" }
                                         onClicked: actionFn()
                                     }
                                 }

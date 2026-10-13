@@ -188,6 +188,48 @@ function run() {
     assert.strictEqual(withNewDevice[0].id, firstRecord.id, "old record unchanged");
     assert.notStrictEqual(withNewDevice[1].id, firstRecord.id, "new record has its own id");
 
+    // 18. removeRecord removes exactly the record with the given id.
+    const rmA = data.createRecord("192.168.1.20:1111", "PhoneA", "192.168.1.20:1111");
+    const rmB = data.createRecord("192.168.1.20:2222", "PhoneB", "192.168.1.20:2222");
+    const rmC = data.createRecord("192.168.1.20:3333", "PhoneC", "192.168.1.20:3333");
+    const removedB = data.removeRecord([rmA, rmB, rmC], rmB.id);
+    assert.deepStrictEqual(removedB.map(function(r) { return r.id; }), [rmA.id, rmC.id],
+        "removeRecord removes the matching record");
+
+    // 19. An unknown id returns the same ids in the same order in a new array.
+    const rmInput = [rmA, rmB, rmC];
+    const removedUnknown = data.removeRecord(rmInput, "no-such-id");
+    assert.deepStrictEqual(removedUnknown.map(function(r) { return r.id; }), [rmA.id, rmB.id, rmC.id],
+        "unknown id keeps all records in order");
+    assert.notStrictEqual(removedUnknown, rmInput, "unknown id still returns a copy");
+
+    // 20. removeRecord does not mutate the input array.
+    const rmInputLength = rmInput.length;
+    const rmInputIds = rmInput.map(function(r) { return r.id; });
+    data.removeRecord(rmInput, rmB.id);
+    assert.strictEqual(rmInput.length, rmInputLength, "input length unchanged");
+    assert.deepStrictEqual(rmInput.map(function(r) { return r.id; }), rmInputIds,
+        "input ids unchanged");
+
+    // 21. Empty-string and undefined ids return an unchanged copy, and a
+    // record that lacks an id is not removed by removeRecord(list, undefined).
+    const noIdRecord = { model: "NoIdModel", lastKnownEndpoint: "192.168.1.20:4444" };
+    const noIdList = [noIdRecord];
+    const removedEmptyId = data.removeRecord(noIdList, "");
+    assert.deepStrictEqual(removedEmptyId, noIdList, "empty id returns an unchanged copy");
+    assert.notStrictEqual(removedEmptyId, noIdList, "empty id copy is a new array");
+    const removedUndefinedId = data.removeRecord([noIdRecord], undefined);
+    assert.strictEqual(removedUndefinedId.length, 1, "record without id survives an undefined removal");
+    assert.strictEqual(removedUndefinedId[0], noIdRecord, "record without id is unchanged");
+
+    // 22. A removal result round-trips through serializeState/parseState with
+    // the expected remaining ids.
+    const afterRemove = data.removeRecord([rmA, rmB, rmC], rmB.id);
+    const reparsedRemove = data.parseState(data.serializeState(afterRemove));
+    assert.strictEqual(reparsedRemove.ok, true, "removed state parses ok");
+    assert.deepStrictEqual(reparsedRemove.devices.map(function(r) { return r.id; }), [rmA.id, rmC.id],
+        "round-trip preserves the remaining ids");
+
     console.log("All SavedDeviceData fixtures passed.");
 }
 

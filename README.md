@@ -241,6 +241,16 @@ Android may change the wireless debugging port. Press **Update** on a saved
 row, enter the new main endpoint, then press **Connect**. The saved record is
 updated without requiring a new pairing.
 
+### Removing a saved phone
+
+Press the remove icon at the top right of a saved **Wireless · Unavailable**
+row, then press **Remove** to confirm or **Cancel** to keep it. This removes
+the phone from the plugin's saved list only; it does not unpair it. To revoke
+this computer's access, remove the computer under **Wireless debugging →
+Paired devices** on the phone. A connected phone has no saved row, so it can
+only be removed while it is offline. A removed phone is saved again the next
+time you connect it from the plugin.
+
 Important notes:
 
 - The main **Wireless debugging** endpoint and the popup **pairing endpoint**
@@ -327,7 +337,9 @@ file; they are stored in the Quickshell state directory, typically:
 ```
 
 Pairing codes, passwords, and unknown fields are never persisted. You may
-delete this file to remove all saved wireless history.
+delete this file to remove all saved wireless history. To remove a single
+saved phone without touching the file, see
+[Removing a saved phone](#removing-a-saved-phone).
 
 ## Troubleshooting
 

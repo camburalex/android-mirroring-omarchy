@@ -155,6 +155,12 @@ function updateEndpoint(records, id, endpoint) {
     return null;
 }
 
+function removeRecord(records, id) {
+    if (!records) return [];
+    if (!id) return records.slice();
+    return records.filter(function(r) { return r.id !== id; });
+}
+
 function serializeState(devices) {
     if (!devices) devices = [];
     var arr = [];
@@ -206,6 +212,7 @@ if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
         createRecord: createRecord,
         addOrUpdateRecord: addOrUpdateRecord,
         updateEndpoint: updateEndpoint,
+        removeRecord: removeRecord,
         serializeState: serializeState,
         parseState: parseState
     };

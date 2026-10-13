@@ -85,6 +85,12 @@ Scope {
         return true;
     }
 
+    function remove(recordId) {
+        if (!root.loaded) return;
+        root.devices = SavedDeviceData.removeRecord(root.devices, recordId);
+        _persist();
+    }
+
     Process {
         id: ensureDirProc
         running: false
