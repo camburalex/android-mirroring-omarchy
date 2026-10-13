@@ -4,7 +4,7 @@
   "name": "Android Mirroring",
   "version": "0.2.0",
   "author": "Omarchy Android Mirroring contributors",
-  "description": "Third-party Android device mirroring plugin for Omarchy. Mirrors and controls Android phones and tablets over USB or Android 11+ Wireless Debugging using upstream scrcpy as the rendering engine.",
+  "description": "Mirror and control your Android phone from the Omarchy bar. Almost no setup: the widget automatically offers to install scrcpy and ADB through Omarchy's installer, and Wi-Fi pairing is one QR code scan. USB or wireless, powered by scrcpy.",
   "kinds": [
     "bar-widget"
   ],
