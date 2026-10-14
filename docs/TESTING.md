@@ -153,16 +153,16 @@ The remaining cases were not run individually.
 ### Saved-device removal
 
 - R1 the remove icon appears only on **Wireless · Unavailable** saved rows:
-  PENDING
+  PASS
 - R2 the remove icon shows the confirm row, and **Cancel** (or the icon
-  again) restores Reconnect/Update: PENDING
+  again) restores Reconnect/Update: PASS
 - R3 **Remove** deletes the row and it stays gone after `omarchy restart
-  shell`: PENDING
+  shell`: PASS
 - R4 the remove icon and **Remove** are disabled while a wireless connect is
-  in flight: PENDING
+  in flight: PASS (connect too fast to observe clearly)
 - R5 removing the record open in the **Update** form returns to the Wireless
-  menu: PENDING
-- R6 closing the panel cancels a pending confirmation: PENDING
+  menu: PASS
+- R6 closing the panel cancels a pending confirmation: PASS
 
 ### Saved-device offline state
 
