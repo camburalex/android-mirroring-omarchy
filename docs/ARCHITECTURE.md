@@ -26,6 +26,10 @@ Omarchy bar widget (qml/BarWidget.qml)
 - ADB and scrcpy run as `Quickshell.Io.Process` children with direct `program + argv`.
 - The wireless pairing code is written to `adb` stdin once and is never logged,
   persisted, or placed in a process argument.
+- The wireless address and pairing-code fields exist only while their form is
+  on screen in the open panel. Qt reads the clipboard into every live editable
+  text field whenever the clipboard changes, so the fields are destroyed when
+  the form changes or the panel closes, and typed text goes with them.
 - QR-code pairing shows a one-time service name and password as a QR code,
   waits for the phone to advertise `_adb-tls-pairing._tcp` under that name,
   pairs with `adb pair`, then reads the phone's main endpoint from its

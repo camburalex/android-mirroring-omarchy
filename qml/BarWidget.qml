@@ -280,16 +280,15 @@ Panel {
     }
 
     function _startPairStep2() {
-        var check = WirelessCommand.validateEndpoint(step1ConnAddrField.text)
+        var endpoint = step1ConnAddrLoader.item.text
+        var check = WirelessCommand.validateEndpoint(endpoint)
         if (!check.ok) {
             root._formError = "Connection address is invalid. " + check.reason
             return
         }
         root._formError = ""
-        root._step1Endpoint = step1ConnAddrField.text
+        root._step1Endpoint = endpoint
         root._setWirelessMode("pair-step2")
-        pairingAddrField.text = ""
-        pairingCodeField.text = ""
     }
 
     function _pairAndConnect() {
@@ -298,17 +297,17 @@ Panel {
         wirelessManager.clearError()
         root._formError = ""
         wirelessManager.pairAndConnect(
-            pairingAddrField.text,
+            pairingAddrLoader.item.text,
             root._step1Endpoint,
-            pairingCodeField.text
+            pairingCodeLoader.item.text
         )
-        pairingCodeField.text = ""
+        pairingCodeLoader.item.text = ""
     }
 
     function _connectFromField() {
         if (wirelessManager.busy) return
 
-        var endpoint = connectAddrField.text
+        var endpoint = connectAddrLoader.item.text
         var check = WirelessCommand.validateEndpoint(endpoint)
         if (!check.ok) {
             root._formError = "Connection address is invalid. " + check.reason
@@ -335,8 +334,8 @@ Panel {
 
     function _startUpdate(record) {
         root._updateRecord = record
-        connectAddrField.text = record.lastKnownEndpoint
         root._setWirelessMode("update")
+        connectAddrLoader.item.text = record.lastKnownEndpoint
     }
 
     function _removeRecord(record) {
@@ -360,10 +359,10 @@ Panel {
         PanelKeyCatcher {
             id: keyCatcher
             anchors.fill: parent
-            blocked: step1ConnAddrField.activeFocus
-                || pairingAddrField.activeFocus
-                || pairingCodeField.activeFocus
-                || connectAddrField.activeFocus
+            blocked: (step1ConnAddrLoader.item !== null && step1ConnAddrLoader.item.activeFocus)
+                || (pairingAddrLoader.item !== null && pairingAddrLoader.item.activeFocus)
+                || (pairingCodeLoader.item !== null && pairingCodeLoader.item.activeFocus)
+                || (connectAddrLoader.item !== null && connectAddrLoader.item.activeFocus)
             onCloseRequested: root.close()
             onTabRequested: function(direction) { root._moveFocus(direction) }
             onActivateRequested: root._activateFocusedItem()
@@ -930,10 +929,7 @@ Panel {
                         visible: root._wirelessMode === "menu"
                         text: "Pair with pairing code"
                         enabled: !wirelessManager.busy
-                        property var actionFn: function() {
-                            step1ConnAddrField.text = ""
-                            root._setWirelessMode("pair-step1")
-                        }
+                        property var actionFn: function() { root._setWirelessMode("pair-step1") }
                         onClicked: actionFn()
                     }
 
@@ -941,10 +937,7 @@ Panel {
                         visible: root._wirelessMode === "menu"
                         text: "Already paired? Connect"
                         enabled: !wirelessManager.busy
-                        property var actionFn: function() {
-                            connectAddrField.text = ""
-                            root._setWirelessMode("already")
-                        }
+                        property var actionFn: function() { root._setWirelessMode("already") }
                         onClicked: actionFn()
                     }
 
@@ -1119,11 +1112,16 @@ Panel {
                             width: parent.width
                         }
 
-                        TextField {
-                            id: step1ConnAddrField
+                        // Qt reads the clipboard into every live editable field on each clipboard
+                        // change, so each field exists only while its form is on screen.
+                        Loader {
+                            id: step1ConnAddrLoader
                             width: parent.width
-                            placeholderText: "192.168.1.20:5555"
-                            onAccepted: nextToPairBtn.actionFn()
+                            active: panel.visible && parent.visible
+                            sourceComponent: TextField {
+                                placeholderText: "192.168.1.20:5555"
+                                onAccepted: nextToPairBtn.actionFn()
+                            }
                         }
                     }
 
@@ -1192,11 +1190,14 @@ Panel {
                             width: parent.width
                         }
 
-                        TextField {
-                            id: pairingAddrField
+                        Loader {
+                            id: pairingAddrLoader
                             width: parent.width
-                            placeholderText: "192.168.1.20:37123"
-                            onAccepted: pairBtn.actionFn()
+                            active: panel.visible && parent.visible
+                            sourceComponent: TextField {
+                                placeholderText: "192.168.1.20:37123"
+                                onAccepted: pairBtn.actionFn()
+                            }
                         }
                     }
 
@@ -1223,14 +1224,17 @@ Panel {
                             width: parent.width
                         }
 
-                        TextField {
-                            id: pairingCodeField
+                        Loader {
+                            id: pairingCodeLoader
                             width: parent.width
-                            placeholderText: "123456"
-                            password: true
-                            maximumLength: 6
-                            inputMethodHints: Qt.ImhDigitsOnly
-                            onAccepted: pairBtn.actionFn()
+                            active: panel.visible && parent.visible
+                            sourceComponent: TextField {
+                                placeholderText: "123456"
+                                password: true
+                                maximumLength: 6
+                                inputMethodHints: Qt.ImhDigitsOnly
+                                onAccepted: pairBtn.actionFn()
+                            }
                         }
                     }
 
@@ -1277,11 +1281,14 @@ Panel {
                             width: parent.width
                         }
 
-                        TextField {
-                            id: connectAddrField
+                        Loader {
+                            id: connectAddrLoader
                             width: parent.width
-                            placeholderText: "192.168.1.20:5555"
-                            onAccepted: connectBtn.actionFn()
+                            active: panel.visible && parent.visible
+                            sourceComponent: TextField {
+                                placeholderText: "192.168.1.20:5555"
+                                onAccepted: connectBtn.actionFn()
+                            }
                         }
                     }
 

@@ -172,3 +172,17 @@ The remaining cases were not run individually.
 - O2 pressing **Reconnect** while ADB still lists the address as `offline`
   either reaches **Wireless · Ready** or shows a connect error (record which):
   PASS, "Could not reach this device" with Wireless debugging still off
+
+### Text-field lifetime
+
+- F1 **Pair with pairing code**: the address field starts empty, **Next**
+  shows empty pairing fields, Enter in each field triggers its button, and
+  pairing connects: PASS
+- F2 **Already paired? Connect**: the field starts empty and Enter connects:
+  PASS
+- F3 **Update** on a saved row pre-fills its address and Connect updates the
+  same record: PASS
+- F4 typing j, k, x and Space in any field enters them as text instead of
+  triggering panel keys: PASS
+- F5 text typed into a form is gone after Back, or after closing and
+  reopening the panel: PASS
