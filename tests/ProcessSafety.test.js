@@ -207,6 +207,34 @@ function run() {
         assertNotContains(readQml(name), "execDetached", "no detached launch outside dependency setup: " + name);
     }
 
+    // No clipboard access: the plugin creates no Qt editable text control (they
+    // request clipboard data) and never reads Quickshell's clipboard. Text is
+    // typed into KeyEntryField, which is plain Text driven by key presses.
+    const editableText = /\b(TextField|TextInput|TextEdit|TextArea|SpinBox|ComboBox)\s*\{/;
+    for (const name of fs.readdirSync(QML_DIR)) {
+        if (!/\.(qml|js)$/.test(name)) continue;
+        const source = readQml(name);
+        assert.strictEqual(editableText.test(source), false, "no editable text control: " + name);
+        assertNotContains(source, "QtQuick.Controls", "no Quick Controls import: " + name);
+        assertNotContains(source, "clipboardText", "no clipboard read: " + name);
+    }
+    const keyEntryField = readQml("KeyEntryField.qml");
+    assert.ok(keyEntryField.indexOf("Keys.onPressed") >= 0, "entry field handles keys itself");
+    assert.ok(keyEntryField.indexOf("KeyEntry.applyKey") >= 0, "entry field applies the shared key rules");
+    assert.ok(keyEntryField.indexOf("textFormat: Text.PlainText") >= 0, "entry field shows plain text");
+    const barWidget = readQml("BarWidget.qml");
+    assert.strictEqual(barWidget.split("sourceComponent: KeyEntryField {").length - 1, 4,
+        "all four wireless fields are KeyEntryField");
+    const codeField = extractBlock(barWidget, "pairingCodeLoader");
+    assert.ok(codeField.indexOf('kind: "code"') >= 0, "pairing-code field accepts digits only");
+    assert.ok(codeField.indexOf("password: true") >= 0, "pairing-code field is masked");
+    for (const id of ["step1ConnAddrLoader", "pairingAddrLoader", "pairingCodeLoader", "connectAddrLoader"]) {
+        assert.ok(extractBlock(barWidget, id).indexOf("active: panel.visible && parent.visible") >= 0,
+            id + " exists only while its form is on screen");
+        assert.ok(extractBlock(barWidget, "keyCatcher").indexOf(id + ".item.activeFocus") >= 0,
+            "panel keys are blocked while " + id + " has focus");
+    }
+
     console.log("All ProcessSafety fixtures passed.");
 }
 

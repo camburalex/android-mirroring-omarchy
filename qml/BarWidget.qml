@@ -1112,13 +1112,13 @@ Panel {
                             width: parent.width
                         }
 
-                        // Qt reads the clipboard into every live editable field on each clipboard
-                        // change, so each field exists only while its form is on screen.
+                        // Each field exists only while its form is on screen, so typed text,
+                        // including the pairing code, is dropped on Back or panel close.
                         Loader {
                             id: step1ConnAddrLoader
                             width: parent.width
                             active: panel.visible && parent.visible
-                            sourceComponent: TextField {
+                            sourceComponent: KeyEntryField {
                                 placeholderText: "192.168.1.20:5555"
                                 onAccepted: nextToPairBtn.actionFn()
                             }
@@ -1194,7 +1194,7 @@ Panel {
                             id: pairingAddrLoader
                             width: parent.width
                             active: panel.visible && parent.visible
-                            sourceComponent: TextField {
+                            sourceComponent: KeyEntryField {
                                 placeholderText: "192.168.1.20:37123"
                                 onAccepted: pairBtn.actionFn()
                             }
@@ -1228,11 +1228,10 @@ Panel {
                             id: pairingCodeLoader
                             width: parent.width
                             active: panel.visible && parent.visible
-                            sourceComponent: TextField {
+                            sourceComponent: KeyEntryField {
                                 placeholderText: "123456"
+                                kind: "code"
                                 password: true
-                                maximumLength: 6
-                                inputMethodHints: Qt.ImhDigitsOnly
                                 onAccepted: pairBtn.actionFn()
                             }
                         }
@@ -1285,7 +1284,7 @@ Panel {
                             id: connectAddrLoader
                             width: parent.width
                             active: panel.visible && parent.visible
-                            sourceComponent: TextField {
+                            sourceComponent: KeyEntryField {
                                 placeholderText: "192.168.1.20:5555"
                                 onAccepted: connectBtn.actionFn()
                             }

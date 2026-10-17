@@ -26,10 +26,17 @@ Omarchy bar widget (qml/BarWidget.qml)
 - ADB and scrcpy run as `Quickshell.Io.Process` children with direct `program + argv`.
 - The wireless pairing code is written to `adb` stdin once and is never logged,
   persisted, or placed in a process argument.
-- The wireless address and pairing-code fields exist only while their form is
-  on screen in the open panel. Qt reads the clipboard into every live editable
-  text field whenever the clipboard changes, so the fields are destroyed when
-  the form changes or the panel closes, and typed text goes with them.
+- The wireless address and pairing-code fields are `KeyEntryField`: plain
+  `Text` driven by key presses, not a Qt editable text control (`TextInput`,
+  `TextEdit`, or the Quick Controls `TextField` built on them). The plugin
+  therefore never requests clipboard data, and the fields have no paste,
+  selection, or input-method handling. `KeyEntry.js` holds the key rules: an
+  address takes letters, digits and `. : - [ ] %` up to 64 characters, the
+  pairing code takes six digits and is shown masked, and Left, Right, Home and
+  End move the caret so typing, Backspace and Delete edit at it.
+- Each field exists only while its form is on screen in the open panel, so
+  typed text, including the pairing code, is dropped on Back or when the panel
+  closes.
 - QR-code pairing shows a one-time service name and password as a QR code,
   waits for the phone to advertise `_adb-tls-pairing._tcp` under that name,
   pairs with `adb pair`, then reads the phone's main endpoint from its

@@ -63,6 +63,16 @@ Any QML integration change must also survive a full cold restart:
   validation, pairing-code validation, and `adb pair` / `adb connect` command
   building against the real production `qml/WirelessCommand.js`.
 
+## Address and pairing-code entry checks
+
+- `node tests/KeyEntry.test.js` runs the fixture suite for key classification,
+  the address and pairing-code character sets, length limits, caret movement,
+  Backspace, Delete and Enter, and pairing-code masking against the real
+  production `qml/KeyEntry.js`.
+- `node tests/ProcessSafety.test.js` also checks that no plugin QML or JS file
+  creates a Qt editable text control, imports Quick Controls, or reads the
+  clipboard, and that all four wireless fields are `KeyEntryField`.
+
 ## QR pairing checks
 
 - `node tests/QrPairing.test.js` runs the fixture suite for credential
@@ -173,7 +183,7 @@ The remaining cases were not run individually.
   either reaches **Wireless · Ready** or shows a connect error (record which):
   PASS, "Could not reach this device" with Wireless debugging still off
 
-### Text-field lifetime
+### Address and pairing-code entry
 
 - F1 **Pair with pairing code**: the address field starts empty, **Next**
   shows empty pairing fields, Enter in each field triggers its button, and
@@ -182,7 +192,16 @@ The remaining cases were not run individually.
   PASS
 - F3 **Update** on a saved row pre-fills its address and Connect updates the
   same record: PASS
-- F4 typing j, k, x and Space in any field enters them as text instead of
-  triggering panel keys: PASS
+- F4 typing j, k and x in an address field enters them as text, and Space is
+  ignored, without triggering panel keys: PASS
 - F5 text typed into a form is gone after Back, or after closing and
   reopening the panel: PASS
+- F6 a field takes focus by click and by Tab, shows a caret and the focus
+  border, and Tab moves focus out of the field to the next Tab-focusable
+  control: PASS
+- F7 the pairing code shows dots, stops at six digits, ignores letters, and
+  Backspace removes one digit: PASS
+- F8 Ctrl+V, middle click, and right click in any field insert nothing and
+  open no menu: PASS
+- F9 Left, Right, Home and End move the caret in any field, and typing,
+  Backspace and Delete edit at the caret: PASS
