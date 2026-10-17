@@ -5,11 +5,10 @@
 ![Screenshot_Revolut](docs/screenshots/Screenshot_Revolut.png)
 ![Screenshot_App](docs/screenshots/Screenshot_App.png)
 
-A third-party [Omarchy](https://omarchy.org/) Quattro plugin that adds an
-Android device mirroring widget to the Omarchy shell. It discovers Android
-phones and tablets over USB or Android 11+ Wireless Debugging and launches the
-upstream [scrcpy](https://github.com/Genymobile/scrcpy) mirroring engine under
-a Quattro-native Hyprland floating window.
+Mirror and control your Android phone from the [Omarchy](https://omarchy.org/)
+bar. Almost no setup: the widget automatically offers to install scrcpy and ADB
+through Omarchy's installer, and Wi-Fi pairing is one QR code scan. USB or
+wireless (Android 11+), powered by [scrcpy](https://github.com/Genymobile/scrcpy).
 
 This product is the Omarchy-native interface, device/session layer, and
 integration. It is **not** a fork or reimplementation of scrcpy.
@@ -17,10 +16,10 @@ integration. It is **not** a fork or reimplementation of scrcpy.
 ## Features
 
 - USB device discovery via `adb devices -l`.
-- Android 11+ Wireless Debugging QR-code pairing: scan one code on the phone,
-  no addresses or codes to type.
-- Android 11+ Wireless Debugging pair/connect flow with a masked six-digit
-  pairing code.
+- Wireless Debugging QR-code pairing (Android 11+): scan one code on the
+  phone, no addresses or codes to type.
+- Wireless Debugging pair/connect flow with a masked six-digit pairing code
+  (Android 11+).
 - Saved wireless device metadata for one-tap reconnect after an Omarchy shell
   restart.
 - Update Address flow for wireless endpoints that change port.
@@ -262,6 +261,9 @@ Important notes:
 - **Wireless Debugging** must be enabled whenever the user wants to connect or
   use a wireless mirroring session. It may be turned off between sessions and
   must be re-enabled before reconnecting.
+- The address and pairing-code fields accept typed input only; pasting is not
+  supported. Addresses take letters, digits, and `. : - [ ] %`; the pairing
+  code takes six digits.
 - The QR-code pairing password is generated per QR code from the kernel
   random source. It is written to `qrencode` and ADB stdin and is never
   saved, logged, or passed as a process argument.
