@@ -283,6 +283,11 @@ function run() {
         "M6: NUL in recording path rejected"
     );
 
+    assert.deepStrictEqual(command.WINDOW_RULE_ARGV.slice(0, 2), ["hyprctl", "repl"],
+        "W1: window rule goes straight to hyprctl, no shell");
+    assert.ok(command.WINDOW_RULE_ARGV[2].indexOf('initial_title = "^Android Mirroring$"') >= 0,
+        "W2: window rule matches the fixed scrcpy window title");
+
     console.log("All ScrcpyCommand fixtures passed.");
 }
 

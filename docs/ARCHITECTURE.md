@@ -11,7 +11,7 @@ Omarchy bar widget (qml/BarWidget.qml)
   → qml/ScrcpyBackend.qml       (tracked scrcpy process)
   → qml/RecordingManager.qml    (recording path preparation)
   → external scrcpy rendering window
-  → hyprland.lua                (floating phone window rules)
+  → hyprctl repl                (runtime floating window rule)
 ```
 
 ## Ownership

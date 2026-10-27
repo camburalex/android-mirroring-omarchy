@@ -23,6 +23,16 @@ var DEFAULT_PRESET = "balanced";
 // Must contain no device/user input and must remain one argv element.
 var WINDOW_TITLE = "Android Mirroring";
 
+// Floats the plugin's window by registering the rule in the running Hyprland,
+// so users never edit their Hyprland config. The rule lives only in the
+// compositor and is dropped on `hyprctl reload`, so it is re-sent every launch.
+var WINDOW_RULE_ARGV = [
+    "hyprctl",
+    "repl",
+    'hl.window_rule({ match = { class = "^scrcpy$", initial_title = "^' + WINDOW_TITLE + '$" }, '
+        + "float = true, center = true, border_size = 1 })"
+];
+
 // Same framing rule as INVALID_SERIAL, but spaces are allowed because a
 // recording path may legitimately contain them and will always be one argv
 // element, never a shell string.
@@ -103,6 +113,7 @@ if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
         normalizeOptions: normalizeOptions,
         PRESETS: PRESETS,
         DEFAULT_PRESET: DEFAULT_PRESET,
-        WINDOW_TITLE: WINDOW_TITLE
+        WINDOW_TITLE: WINDOW_TITLE,
+        WINDOW_RULE_ARGV: WINDOW_RULE_ARGV
     };
 }

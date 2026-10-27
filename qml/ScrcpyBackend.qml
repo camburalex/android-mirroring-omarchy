@@ -101,6 +101,11 @@ Scope {
             recordingManager.markActive(recordingPath);
         }
 
+        // shortcut: sent alongside scrcpy rather than before it, since hyprctl
+        // answers in milliseconds and scrcpy maps no window until the device
+        // handshake finishes; each launch also re-adds an identical rule until
+        // the next Hyprland reload. Chain the two if a window ever opens tiled.
+        windowRuleProc.running = true;
         scrcpyProc.command = cmd.argv;
         scrcpyProc.running = true;
     }
@@ -258,6 +263,14 @@ Scope {
 
             onExited: function(exitCode, exitStatus) { root._onHealthCheckExited(exitCode, exitStatus) }
         }
+    }
+
+    // Fire-and-forget: outside Hyprland it fails quietly and scrcpy still runs.
+    Process {
+        id: windowRuleProc
+        running: false
+        command: ScrcpyCommand.WINDOW_RULE_ARGV
+        clearEnvironment: false
     }
 
     Process {

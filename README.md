@@ -121,42 +121,21 @@ omarchy plugin update dev.android-mirroring
 
 ### Hyprland integration
 
-The plugin ships a `hyprland.lua` rule that floats, centers, and applies a
-thin border to the plugin-owned scrcpy phone window while inheriting the
-active Omarchy theme. This rule is **not** installed automatically.
-
-Add the following guarded loader to your `~/.config/hypr/hyprland.lua`,
-**after** `require("default.hypr.omarchy")` (so the `o.window` helper is
-available):
-
-```lua
-do
-    local path = (os.getenv("HOME") or "")
-        .. "/.config/omarchy/plugins/dev.android-mirroring/hyprland.lua"
-    local file = io.open(path, "r")
-
-    if file then
-        file:close()
-        dofile(path)
-    end
-end
-```
-
-The guard checks for the plugin directory, so Hyprland still loads cleanly
-if the plugin is removed later. Apply and validate the change:
-
-```bash
-hyprctl reload
-hyprctl configerrors
-```
-
-Do not edit `/usr/share/omarchy/`; only edit your user-owned
-`~/.config/hypr/hyprland.lua`.
+Nothing to configure. Each time mirroring starts, the plugin registers a
+Hyprland window rule in the running compositor (`hyprctl repl`) that floats,
+centers, and applies a thin border to the phone window while inheriting the
+active Omarchy theme. The rule is never written to disk and no Hyprland config
+file is touched; it disappears on `hyprctl reload` and is registered again on
+the next launch.
 
 The rule matches windows where `class = "^scrcpy$"` and
 `initial_title = "^Android Mirroring$"`. The fixed title is set by the
 plugin via `--window-title=Android Mirroring` so user-launched scrcpy
 sessions keep their default titles and are not affected.
+
+Upgrading from an older version: the guarded `hyprland.lua` loader block in
+`~/.config/hypr/hyprland.lua` is no longer needed. It is inert now that the
+file is gone, and you can delete it.
 
 ## USB setup and use
 
@@ -329,9 +308,8 @@ and rounding are inherited from the active Omarchy theme automatically.
 
 ## Configuration
 
-The plugin has no separate user-editable application configuration file.
-The one manual integration step is the guarded Hyprland loader described
-above. Saved wireless devices are plugin-managed state, not a configuration
+The plugin has no separate user-editable application configuration file and
+needs no Hyprland config changes. Saved wireless devices are plugin-managed state, not a configuration
 file; they are stored in the Quickshell state directory, typically:
 
 ```
@@ -357,7 +335,7 @@ saved phone without touching the file, see
 | "Could not generate the QR code" | `qrencode` is missing. Run `omarchy pkg add qrencode`. |
 | Saved phone shows **Wireless · Unavailable** | The wireless debugging port may have changed. Use **Update** to enter the new endpoint and **Connect**. |
 | Mirror image appears but input does not work | Some devices, especially Xiaomi-family devices, may require the additional "USB debugging (Security Settings)" option for input injection, sometimes followed by a reboot. Check the phone's developer/security settings. |
-| Hyprland rule not applied | Run `hyprctl reload` and `hyprctl configerrors`. Ensure the guard block was added after `require("default.hypr.omarchy")`. |
+| Phone window opens tiled instead of floating | Check `hyprctl clients` shows `class: scrcpy` with `initialTitle: Android Mirroring`, and that `hyprctl` works from your session. Stop and start mirroring to re-register the rule. |
 | Session shows "Mirroring ended unexpectedly" | scrcpy exited with an error. Check `adb devices -l`, scrcpy output, and the diagnostics list below. |
 
 ## Diagnostics
@@ -390,11 +368,6 @@ removed automatically. The saved device state file in Quickshell's state
 directory is also not deleted by `omarchy plugin remove`; remove it manually if
 you want a clean state.
 
-The small guarded Hyprland loader block in
-`~/.config/hypr/hyprland.lua` becomes inert after the plugin is removed and
-does not break Hyprland. If you want to remove it entirely, delete the
-`do ... end` block that opens `~/.config/omarchy/plugins/dev.android-mirroring/hyprland.lua`.
-
 ## Brief architecture
 
 The plugin runs as a `bar-widget` inside the existing `omarchy-shell`
@@ -409,7 +382,7 @@ Omarchy bar widget
   → qml/ScrcpyBackend.qml (tracked scrcpy process)
   → qml/BarWidget.qml (panel UI and options)
   → external scrcpy rendering window
-  → hyprland.lua (floating phone window rules)
+  → hyprctl repl (runtime floating window rule)
 ```
 
 For v0.1 the video stream is **not** embedded, proxied, or redecoded. The
